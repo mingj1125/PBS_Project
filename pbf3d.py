@@ -7,9 +7,9 @@ import numpy as np
 
 import taichi as ti
 
-ti.init(arch=ti.gpu)
+ti.init(arch=ti.cuda)
 
-screen_res = (800, 400)
+screen_res = (1566, 1500)
 screen_to_world_ratio = 10.0
 bound = (400, 300, 200)
 boundary = (bound[0] / screen_to_world_ratio,
@@ -26,10 +26,7 @@ def round_up(f, s):
 grid_size = (round_up(boundary[0], 1), round_up(boundary[1], 1), round_up(boundary[2], 1))
 
 dim = 3
-bg_color = 0x112f41
-particle_color = 0x068587
-boundary_color = 0xebaca2
-num_particles_x = 60
+num_particles_x = 20
 num_particles_y = 30
 num_particles_z = 20
 num_particles = num_particles_x * num_particles_y * num_particles_z
@@ -37,7 +34,7 @@ max_num_particles_per_cell = 100
 max_num_neighbors = 100
 time_delta = 1.0 / 20.0
 epsilon = 1e-5
-particle_radius = 3.0
+particle_radius = 0.2
 particle_radius_in_world = particle_radius / screen_to_world_ratio
 
 # PBF params
@@ -59,7 +56,7 @@ old_positions = ti.Vector.field(dim, float)
 positions = ti.Vector.field(dim, float)
 velocities = ti.Vector.field(dim, float)
 grid_num_particles = ti.field(int)
-grid2particles = ti.field(int)
+grid2particles = ti.field(ti.i32)
 particle_num_neighbors = ti.field(int)
 particle_neighbors = ti.field(int)
 lambdas = ti.field(float)
@@ -70,7 +67,7 @@ board_states = ti.Vector.field(2, float)
 ti.root.dense(ti.i, num_particles).place(old_positions, positions, velocities)
 grid_snode = ti.root.dense(ti.ijk, grid_size)
 grid_snode.place(grid_num_particles)
-grid_snode.dense(ti.k, max_num_particles_per_cell).place(grid2particles)
+grid_snode.dense(ti.l, max_num_particles_per_cell).place(grid2particles)
 nb_node = ti.root.dense(ti.i, num_particles)
 nb_node.place(particle_num_neighbors)
 nb_node.dense(ti.j, max_num_neighbors).place(particle_neighbors)
@@ -89,7 +86,7 @@ def poly6_value(s, h):
 
 @ti.func
 def spiky_gradient(r, h):
-    result = ti.Vector([0.0, 0.0])
+    result = ti.Vector([0.0, 0.0, 0.0])
     r_len = r.norm()
     if 0 < r_len and r_len < h:
         x = (h - r_len) / (h * h * h)
@@ -140,8 +137,8 @@ def move_board():
     # probably more accurate to exert force on particles according to hooke's law.
     b = board_states[None]
     b[1] += 1.0
-    period = 90
-    vel_strength = 8.0
+    period = 70
+    vel_strength = 5.0
     if b[1] >= 2 * period:
         b[1] = 0
     b[0] += -ti.sin(b[1] * np.pi / period) * vel_strength * time_delta
@@ -302,14 +299,15 @@ init_particles()
 window = ti.ui.Window("PBF_3D", screen_res)
 canvas = window.get_canvas()
 scene = ti.ui.Scene()
-camera = ti.ui.make_camera()
-camera.position(5, 2, 2)
+camera = ti.ui.Camera()
+camera.position(boundary[0]/2+1,40, -50)
+camera.lookat(boundary[0]/2+1 ,7, 0)
 while window.running:
     camera.track_user_inputs(window, movement_speed=0.03, hold_key=ti.ui.RMB)
     scene.set_camera(camera)
     scene.ambient_light((0.8, 0.8, 0.8))
     scene.point_light(pos=(0.5, 1.5, 1.5), color=(1, 1, 1))
-    scene.particles(positions, color = (0.68, 0.26, 0.19), radius = particle_radius)
+    scene.particles(positions, color = (0.18, 0.26, 0.79), radius = particle_radius)
     move_board()
     run_pbf()
     canvas.scene(scene)
