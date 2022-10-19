@@ -8,6 +8,7 @@ https://blog.mmacklin.com/2013/07/25/siggraph-slides/ Demo video
 
 ## Simulation Methods: 
   SPH \
+  Neighbor Search \
   Rigid Body Collision \
   Two-Way Coupling of Fluids with Clothing and Rigid Bodies 
 
