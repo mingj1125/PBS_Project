@@ -11,13 +11,13 @@ https://splishsplash.readthedocs.io/en/latest/VolumeSampling.html Tool: Particle
 # Project Plan: 
 
 ## Simulation Methods: 
-  SPH \
-  Neighbor Search \
-  Rigid Body Collision \
+  Position Based Dynamics \
+  Neighbor Search using Spatial Hashing\
+  Rigid Body Collisions using Signed Distance Fields\
   Two-Way Coupling of Fluids with Clothing and Rigid Bodies 
 
 ## minimum target: 
-  3D pdf \
+  3D PBF \
   Collision with static convex objects (spheres, cubes...) 
 ## desired target: 
   Collision with daynamic simple objects and maybe static meshes 

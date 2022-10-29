@@ -7,11 +7,14 @@ import numpy as np
 
 import taichi as ti
 
+import meshio
+
+
 ti.init(arch=ti.cuda)
 
 screen_res = (1566, 1500)
 screen_to_world_ratio = 10.0
-bound = (400, 300, 200)
+bound = (500, 300, 300)
 boundary = (bound[0] / screen_to_world_ratio,
             bound[1] / screen_to_world_ratio,
             bound[2] / screen_to_world_ratio)
@@ -31,16 +34,16 @@ num_particles_y = 30
 num_particles_z = 20
 num_particles = num_particles_x * num_particles_y * num_particles_z
 max_num_particles_per_cell = 100
-max_num_neighbors = 100
-time_delta = 1.0 / 20.0
+max_num_neighbors = 150
+time_delta =  1.0 / 200.0
 epsilon = 1e-5
-particle_radius = 0.2
+particle_radius = 0.05
 particle_radius_in_world = particle_radius / screen_to_world_ratio
 
 # PBF params
 h_ = 1.1
 mass = 1.0
-rho0 = 1.0
+rho0 = 1.1
 lambda_epsilon = 100.0
 pbf_num_iters = 5
 corr_deltaQ_coeff = 0.3
@@ -51,6 +54,16 @@ neighbor_radius = h_ * 1.05
 
 poly6_factor = 315.0 / 64.0 / math.pi
 spiky_grad_factor = -45.0 / math.pi
+
+mesh_bunny = meshio.read("bunny.vtk")
+bunnym_pos = mesh_bunny.points
+bunny_pos = ti.Vector.field(3, dtype=ti.f32, shape = bunnym_pos.shape[0])
+for i in range(bunny_pos.shape[0]):
+    bunny_pos[i] = bunnym_pos[i]
+    bunny_pos[i] *= 2.3
+    bunny_pos[i] += ti.math.vec3([17., 18., 12.])
+num_fluid_particles = num_particles    
+num_particles += bunny_pos.shape[0]
 
 old_positions = ti.Vector.field(dim, float)
 positions = ti.Vector.field(dim, float)
@@ -137,8 +150,8 @@ def move_board():
     # probably more accurate to exert force on particles according to hooke's law.
     b = board_states[None]
     b[1] += 1.0
-    period = 70
-    vel_strength = 5.0
+    period = 470
+    vel_strength = 8.0
     if b[1] >= 2 * period:
         b[1] = 0
     b[0] += -ti.sin(b[1] * np.pi / period) * vel_strength * time_delta
@@ -259,55 +272,41 @@ def run_pbf():
     epilogue()
 
 
-def render(gui):
-    gui.clear(bg_color)
-    pos_np = positions.to_numpy()
-    for j in range(dim):
-        pos_np[:, j] *= screen_to_world_ratio / screen_res[j]
-    gui.circles(pos_np, radius=particle_radius, color=particle_color)
-    gui.rect((0, 0), (board_states[None][0] / boundary[0], 1),
-             radius=1.5,
-             color=boundary_color)
-    gui.show()
-
-
 @ti.kernel
 def init_particles():
-    for i in range(num_particles):
-        delta = h_ * 0.8
-        offs = ti.Vector([(boundary[0] - delta * num_particles_x) * 0.5,
+    delta = h_ * 0.8
+    offs = ti.Vector([(boundary[0] - delta * num_particles_x) * 0.5 + 6.7,
                           boundary[1] * 0.02, 0.0])
-        pos_y = i // (num_particles_x * num_particles_z)
-        positions[i] = ti.Vector([i % num_particles_x, pos_y, (i - pos_y * (num_particles_x * num_particles_z)) // num_particles_x
+    for i in range(num_fluid_particles):
+        pos_z = i // (num_particles_x * num_particles_y)
+        positions[i] = ti.Vector([i % num_particles_x, (i - pos_z * (num_particles_x * num_particles_y)) // num_particles_x, pos_z
                                   ]) * delta + offs
         for c in ti.static(range(dim)):
             velocities[i][c] = (ti.random() - 0.5) * 4
     board_states[None] = ti.Vector([boundary[0] - epsilon, -0.0])
 
-
-def print_stats():
-    print('PBF stats:')
-    num = grid_num_particles.to_numpy()
-    avg, max_ = np.mean(num), np.max(num)
-    print(f'  #particles per cell: avg={avg:.2f} max={max_}')
-    num = particle_num_neighbors.to_numpy()
-    avg, max_ = np.mean(num), np.max(num)
-    print(f'  #neighbors per particle: avg={avg:.2f} max={max_}')
+    for i in range(bunny_pos.shape[0]):
+        positions[i+num_fluid_particles] = bunny_pos[i]
+        velocities[i] = ti.math.vec3([0., 0., 0.])   
 
 
 init_particles()
+
 window = ti.ui.Window("PBF_3D", screen_res)
 canvas = window.get_canvas()
 scene = ti.ui.Scene()
 camera = ti.ui.Camera()
-camera.position(boundary[0]/2+1,40, -50)
-camera.lookat(boundary[0]/2+1 ,7, 0)
+camera.position(boundary[0]/2-2,37, -50)
+camera.lookat(boundary[0]/2+1 ,14, 0)
 while window.running:
     camera.track_user_inputs(window, movement_speed=0.03, hold_key=ti.ui.RMB)
     scene.set_camera(camera)
     scene.ambient_light((0.8, 0.8, 0.8))
     scene.point_light(pos=(0.5, 1.5, 1.5), color=(1, 1, 1))
-    scene.particles(positions, color = (0.18, 0.26, 0.79), radius = particle_radius)
+    scene.particles(positions, index_count = num_fluid_particles, color = (0.18, 0.36, 0.79), radius = particle_radius*2.5)
+    scene.particles(positions, index_offset = num_fluid_particles, color = (0.78, 0.36, 0.79), radius = particle_radius*2.5)
+    #original position of the bunny
+    #scene.particles(bunny_pos, color = (0.88, 0.36, 0.19), radius = particle_radius)
     move_board()
     run_pbf()
     canvas.scene(scene)
