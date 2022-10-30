@@ -1,5 +1,5 @@
 # Macklin, M. and Müller, M., 2013. Position based fluids. ACM Transactions on Graphics (TOG), 32(4), p.104.
-# Taichi implementation by Ye Kuang (k-ye)
+# 3D extension from Taichi 2d implementation by Ye Kuang (k-ye)
 
 import math
 
@@ -45,8 +45,6 @@ lambda_epsilon = 100.0
 pbf_num_iters = 5
 corr_deltaQ_coeff = 0.3
 corrK = 0.001
-# Need ti.pow()
-# corrN = 4.0
 neighbor_radius = h_ * 1.05
 
 poly6_factor = 315.0 / 64.0 / math.pi
@@ -250,6 +248,7 @@ def epilogue():
     for i in positions:
         velocities[i] = (positions[i] - old_positions[i]) / time_delta
     # no vorticity/xsph because we cannot do cross product in 2D...
+    # TO DO for 3D
 
 
 def run_pbf():
@@ -257,18 +256,6 @@ def run_pbf():
     for _ in range(pbf_num_iters):
         substep()
     epilogue()
-
-
-def render(gui):
-    gui.clear(bg_color)
-    pos_np = positions.to_numpy()
-    for j in range(dim):
-        pos_np[:, j] *= screen_to_world_ratio / screen_res[j]
-    gui.circles(pos_np, radius=particle_radius, color=particle_color)
-    gui.rect((0, 0), (board_states[None][0] / boundary[0], 1),
-             radius=1.5,
-             color=boundary_color)
-    gui.show()
 
 
 @ti.kernel
