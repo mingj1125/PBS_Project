@@ -9,7 +9,7 @@ import taichi as ti
 
 ti.init(arch=ti.cuda)
 
-screen_res = (1566, 1500)
+screen_res = (1200, 1200)
 screen_to_world_ratio = 10.0
 bound = (400, 300, 200)
 boundary = (bound[0] / screen_to_world_ratio,
@@ -249,6 +249,21 @@ def epilogue():
         velocities[i] = (positions[i] - old_positions[i]) / time_delta
     # no vorticity/xsph because we cannot do cross product in 2D...
     # TO DO for 3D
+    c = 0.01
+    for p_i in positions:
+        K = ti.Vector([0.0, 0.0, 0.0])
+        pos_i = positions[p_i]
+        density_constraint = 0.0
+        for j in range(particle_num_neighbors[p_i]):
+            p_j = particle_neighbors[p_i, j]
+            if p_j < 0:
+                break
+            pos_j = positions[p_j]
+            pos_ji = pos_i - pos_j
+            density_constraint += poly6_value(pos_ji.norm(), h_)
+            K += (mass / rho0) * (velocities[p_j] - velocities[p_i]) * density_constraint
+        velocities[p_i] = velocities[p_i] + c * K
+
 
 
 def run_pbf():
