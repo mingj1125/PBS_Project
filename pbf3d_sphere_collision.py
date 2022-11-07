@@ -9,7 +9,7 @@ import taichi as ti
 
 ti.init(arch=ti.cuda)
 
-screen_res = (1200, 1000)
+screen_res = (1566, 1500)
 screen_to_world_ratio = 10.0
 bound = (400, 300, 200)
 boundary = (bound[0] / screen_to_world_ratio,
