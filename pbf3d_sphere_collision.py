@@ -36,15 +36,16 @@ time_delta = 1.0 / 20.0
 epsilon = 1e-5
 particle_radius = 0.2
 particle_radius_in_world = particle_radius / screen_to_world_ratio
-num_collision_spheres = 1
+num_collision_spheres = 3
 collision_sphere_radius = 4
+collision_velocity_damping = 0.001
 
 # PBF params
 h_ = 1.1
 mass = 1.0
 rho0 = 1.0
 lambda_epsilon = 100.0
-pbf_num_iters = 5
+pbf_num_iters = 8
 corr_deltaQ_coeff = 0.3
 corrK = 0.001
 neighbor_radius = h_ * 1.05
@@ -133,16 +134,19 @@ def confine_position_to_boundary(p):
             p[i] = bmax[i] - epsilon * ti.random()
     return p
 
+
 @ti.func
 def particle_collide_collision_sphere(p,v):
     for i in range(num_collision_spheres):
-        sdf_value = (p-collision_sphere_positions[i]).norm()-collision_sphere_radius
+        sdf_value = (p-collision_sphere_positions[i]).norm()-(collision_sphere_radius+particle_radius_in_world)
         if sdf_value <= 0.:
             sdf_normal = (p-collision_sphere_positions[i])/(p-collision_sphere_positions[i]).norm()
             closest_p_on_sphere = p - sdf_value*sdf_normal
-            p = closest_p_on_sphere
-            v -= v.dot(sdf_normal)*sdf_normal*1.7
+            p = closest_p_on_sphere + sdf_normal * (particle_radius_in_world + epsilon * ti.random())
+            v -= v.dot(sdf_normal)*sdf_normal*1.
+            v *= collision_velocity_damping
     return p,v
+
 
 @ti.kernel
 def move_board():
@@ -169,6 +173,7 @@ def prologue():
         vel += g * time_delta
         pos += vel * time_delta
         positions[i] = confine_position_to_boundary(pos)
+        positions[i], velocities[i] = particle_collide_collision_sphere(positions[i], velocities[i])
 
     # clear neighbor lookup table
     for I in ti.grouped(grid_num_particles):
@@ -263,8 +268,23 @@ def epilogue():
     # update velocities
     for i in positions:
         velocities[i] = (positions[i] - old_positions[i]) / time_delta
+        positions[i], velocities[i] = particle_collide_collision_sphere(positions[i], velocities[i])
     # no vorticity/xsph because we cannot do cross product in 2D...
     # TO DO for 3D
+    c = 0.01
+    for p_i in positions:
+        K = ti.Vector([0.0, 0.0, 0.0])
+        pos_i = positions[p_i]
+        density_constraint = 0.0
+        for j in range(particle_num_neighbors[p_i]):
+            p_j = particle_neighbors[p_i, j]
+            if p_j < 0:
+                break
+            pos_j = positions[p_j]
+            pos_ji = pos_i - pos_j
+            density_constraint += poly6_value(pos_ji.norm(), h_)
+            K += (mass / rho0) * (velocities[p_j] - velocities[p_i]) * density_constraint
+        velocities[p_i] = velocities[p_i] + c * K
 
 
 def run_pbf():
@@ -291,8 +311,8 @@ def init_particles():
 def init_collision_spheres():
     for i in range(num_collision_spheres):
         delta = h_ * 1.8
-        offs = ti.Vector([boundary[0]*0.3, boundary[1] * 0.1,  boundary[2] * 0.7])
-        collision_sphere_positions[i] = ti.Vector([i*collision_sphere_radius,i,i])*delta + offs
+        offs = ti.Vector([boundary[0]*0.15, boundary[1] * 0.2,  boundary[2] * 0.3])
+        collision_sphere_positions[i] = ti.Vector([i*collision_sphere_radius,i%2,i%2*collision_sphere_radius/2.])*delta + offs
 
 
 def print_stats():
@@ -319,7 +339,7 @@ while window.running:
     scene.ambient_light((0.8, 0.8, 0.8))
     scene.point_light(pos=(0.5, 1.5, 1.5), color=(1, 1, 1))
     scene.particles(positions, color = (0.18, 0.26, 0.79), radius = particle_radius)
-    scene.particles(collision_sphere_positions, color = (0.3, 0.7, 0.3), radius = collision_sphere_radius)
+    scene.particles(collision_sphere_positions, color = (0.3, 0.6, 0.3), radius = collision_sphere_radius)
     move_board()
     run_pbf()
     canvas.scene(scene)
