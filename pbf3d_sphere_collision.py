@@ -9,7 +9,7 @@ import taichi as ti
 
 ti.init(arch=ti.cuda)
 
-screen_res = (1566, 1500)
+screen_res = (1500, 1500)
 screen_to_world_ratio = 10.0
 bound = (400, 300, 200)
 boundary = (bound[0] / screen_to_world_ratio,
@@ -34,10 +34,11 @@ max_num_particles_per_cell = 100
 max_num_neighbors = 100
 time_delta = 1.0 / 20.0
 epsilon = 1e-5
-particle_radius = 0.2
+particle_radius = 0.1
 particle_radius_in_world = particle_radius / screen_to_world_ratio
 num_collision_spheres = 3
-collision_sphere_radius = 4
+collision_sphere_radius = 4.
+collision_contact_offset = 0.9*particle_radius
 collision_velocity_damping = 0.001
 
 # PBF params
@@ -138,12 +139,13 @@ def confine_position_to_boundary(p):
 @ti.func
 def particle_collide_collision_sphere(p,v):
     for i in range(num_collision_spheres):
-        sdf_value = (p-collision_sphere_positions[i]).norm()-(collision_sphere_radius+particle_radius_in_world)
+        sdf_value = (p-collision_sphere_positions[i]).norm()- \
+                        (collision_sphere_radius+particle_radius_in_world+collision_contact_offset)
         if sdf_value <= 0.:
             sdf_normal = (p-collision_sphere_positions[i])/(p-collision_sphere_positions[i]).norm()
             closest_p_on_sphere = p - sdf_value*sdf_normal
-            p = closest_p_on_sphere + sdf_normal * (particle_radius_in_world + epsilon * ti.random())
-            v -= v.dot(sdf_normal)*sdf_normal*1.
+            p = closest_p_on_sphere + sdf_normal * (particle_radius_in_world + collision_contact_offset + epsilon * ti.random())
+            v -= v.dot(sdf_normal)*sdf_normal*2.0
             v *= collision_velocity_damping
     return p,v
 
@@ -305,6 +307,9 @@ def init_particles():
                                   ]) * delta + offs
         for c in ti.static(range(dim)):
             velocities[i][c] = (ti.random() - 0.5) * 4
+        p = positions[i]
+        v = velocities[i]    
+        particle_collide_collision_sphere(p,v)    
     board_states[None] = ti.Vector([boundary[0] - epsilon, -0.0])
 
 @ti.kernel
@@ -324,11 +329,11 @@ def print_stats():
     avg, max_ = np.mean(num), np.max(num)
     print(f'  #neighbors per particle: avg={avg:.2f} max={max_}')
 
-
-init_particles()
 init_collision_spheres()
+init_particles()
 window = ti.ui.Window("PBF_3D", screen_res)
 canvas = window.get_canvas()
+canvas.set_background_color((0.9,0.7,0.6))
 scene = ti.ui.Scene()
 camera = ti.ui.Camera()
 camera.position(boundary[0]/2+1,40, -50)
@@ -339,8 +344,11 @@ while window.running:
     scene.ambient_light((0.8, 0.8, 0.8))
     scene.point_light(pos=(0.5, 1.5, 1.5), color=(1, 1, 1))
     scene.particles(positions, color = (0.18, 0.26, 0.79), radius = particle_radius)
-    scene.particles(collision_sphere_positions, color = (0.3, 0.6, 0.3), radius = collision_sphere_radius)
+    scene.particles(collision_sphere_positions, color = (0.7, 0.4, 0.4), radius = collision_sphere_radius)
     move_board()
     run_pbf()
     canvas.scene(scene)
     window.show()
+    for event in window.get_events(ti.ui.PRESS):
+        if event.key in [ti.ui.ESCAPE]:
+            window.running = False
