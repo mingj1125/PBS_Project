@@ -9,6 +9,8 @@ import taichi as ti
 
 import meshio
 
+from script.particle_bunny import Particle_Bunny
+
 
 ti.init(arch=ti.cuda)
 
@@ -54,16 +56,11 @@ neighbor_radius = h_ * 1.05
 
 poly6_factor = 315.0 / 64.0 / math.pi
 spiky_grad_factor = -45.0 / math.pi
-
-mesh_bunny = meshio.read("bunny.vtk")
-bunnym_pos = mesh_bunny.points
-bunny_pos = ti.Vector.field(3, dtype=ti.f32, shape = bunnym_pos.shape[0])
-for i in range(bunny_pos.shape[0]):
-    bunny_pos[i] = bunnym_pos[i]
-    bunny_pos[i] *= 2.3
-    bunny_pos[i] += ti.math.vec3([17., 18., 12.])
+bunny = Particle_Bunny(solid=False)
+## show case for rigid bunny sampling
+#bunny = Particle_Bunny()
 num_fluid_particles = num_particles    
-num_particles += bunny_pos.shape[0]
+num_particles += bunny.num_particles
 
 old_positions = ti.Vector.field(dim, float)
 positions = ti.Vector.field(dim, float)
@@ -299,8 +296,9 @@ def init_particles():
             velocities[i][c] = (ti.random() - 0.5) * 4
     board_states[None] = ti.Vector([boundary[0] - epsilon, -0.0])
 
-    for i in range(bunny_pos.shape[0]):
-        positions[i+num_fluid_particles] = bunny_pos[i]
+    # for Bunny
+    for i in range(bunny.num_particles):
+        positions[i+num_fluid_particles] = bunny.particle_pos[i]
         velocities[i] = ti.math.vec3([0., 0., 0.])   
 
 
@@ -308,19 +306,30 @@ init_particles()
 
 window = ti.ui.Window("PBF_3D", screen_res)
 canvas = window.get_canvas()
+canvas.set_background_color((0.9,0.7,0.6))
 scene = ti.ui.Scene()
 camera = ti.ui.Camera()
-camera.position(boundary[0]/2, 25, 90)
-camera.lookat(boundary[0]/2 ,boundary[1]/2, boundary[2]/2)
+camera.position(boundary[0]/2+1,40, -50)
+camera.lookat(boundary[0]/2+1 ,7, 0)
 while window.running:
     camera.track_user_inputs(window, movement_speed=0.03, hold_key=ti.ui.RMB)
     scene.set_camera(camera)
     scene.ambient_light((0.8, 0.8, 0.8))
     scene.point_light(pos=(0.5, 1.5, 1.5), color=(1, 1, 1))
+    #fluid particles
     scene.particles(positions, index_count = num_fluid_particles, color = (0.18, 0.36, 0.79), radius = particle_radius*2.5)
-    scene.particles(positions, index_offset = num_fluid_particles, color = (0.78, 0.36, 0.79), radius = particle_radius*2.5)
+    #bunny particles
+    if (bunny.solid):
+        scene.particles(positions, index_offset = num_fluid_particles, index_count = bunny.num_particles_volume, color = (0.78, 0.36, 0.79), radius = particle_radius*2.5)
+        scene.particles(positions, index_offset = num_fluid_particles+bunny.num_particles_volume, color = (0.58, 0.36, 0.79), radius = particle_radius*2.5)
+    else :    
+        scene.particles(positions, index_offset = num_fluid_particles, color = (0.78, 0.36, 0.79), radius = particle_radius*2.5)
     #original position of the bunny
-    #scene.particles(bunny_pos, color = (0.88, 0.36, 0.19), radius = particle_radius)
+    if (bunny.solid):
+        scene.particles(bunny.particle_pos, index_count = bunny.num_particles_volume, color = (0.88, 0.36, 0.19), radius = particle_radius*2.5)
+        scene.particles(bunny.particle_pos, index_offset = bunny.num_particles_volume, color = (0.58, 0.76, 0.79), radius = particle_radius*2.5)
+    else :    
+        scene.particles(bunny.particle_pos, index_offset = num_fluid_particles, color = (0.88, 0.36, 0.19), radius = particle_radius*2.5)
     move_board()
     run_pbf()
     canvas.scene(scene)
