@@ -345,6 +345,8 @@ while window.running:
     scene.point_light(pos=(0.5, 1.5, 1.5), color=(1, 1, 1))
     scene.particles(positions, color = (0.18, 0.26, 0.79), radius = particle_radius)
     scene.particles(collision_sphere_positions, color = (0.7, 0.4, 0.4), radius = collision_sphere_radius)
+    # draw a smaller ball to avoid visual penetration if you don't like using contact offset
+    # scene.particles(collision_sphere_positions, color = (0.7, 0.4, 0.4), radius = collision_sphere_radius*0.95)
     move_board()
     run_pbf()
     canvas.scene(scene)
