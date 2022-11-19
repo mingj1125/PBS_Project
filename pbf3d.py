@@ -18,7 +18,11 @@ ti.init(arch=ti.cuda, dynamic_index=True)
 ## initialize vectors
 # sphere position
 sc.collision_sphere_positions = ti.Vector.field(dim, float)
-ti.root.dense(ti.i, num_collision_spheres).place(sc.collision_sphere_positions)
+if(num_collision_spheres == 0):
+    # such that the variable for collision positions is well defined
+    ti.root.dense(ti.i, num_collision_spheres+1).place(sc.collision_sphere_positions)
+else :
+    ti.root.dense(ti.i, num_collision_spheres).place(sc.collision_sphere_positions)
 # box size
 bc.collision_box_size = ti.Vector.field(dim, float)
 ti.root.dense(ti.i, num_collision_boxes).place(bc.collision_box_size)
@@ -177,7 +181,8 @@ def substep():
 
     # apply position deltas
     for i in positions:
-        positions[i], velocities[i] = sc.particle_collide_collision_sphere(positions[i], velocities[i])
+        if(num_collision_spheres != 0):
+            positions[i], velocities[i] = sc.particle_collide_collision_sphere(positions[i], velocities[i])    
         positions[i], velocities[i] = bc.particle_collide_collision_box(positions[i], velocities[i])
         positions[i] += position_deltas[i]
 
@@ -251,7 +256,8 @@ def print_init():
 def main():
     print_init()
     init_particles()
-    sc.init_collision_spheres()
+    if(num_collision_spheres != 0):
+        sc.init_collision_spheres()
     bc.init_collision_boxes()
     window = ti.ui.Window("PBF_3D", screen_res)
     canvas = window.get_canvas()
@@ -274,7 +280,8 @@ def main():
         # draw particles and collision obj
         scene.particles(positions, color = (0.18, 0.26, 0.79), radius = particle_radius)
         scene.particles(bc.vertices, color = (0.79, 0.26, 0.18), radius = particle_radius)
-        scene.particles(sc.collision_sphere_positions, color = (0.7, 0.4, 0.4), radius = collision_sphere_radius)
+        if(num_collision_spheres != 0):
+            scene.particles(sc.collision_sphere_positions, color = (0.7, 0.4, 0.4), radius = collision_sphere_radius)
         scene.lines(bc.lines, width=1, color = (0.79, 0.26, 0.18))
 
         # step
