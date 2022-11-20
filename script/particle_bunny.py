@@ -8,6 +8,7 @@ import os
 # get current directory
 path = os.getcwd()
 
+@ti.data_oriented
 class Particle_Bunny:
 
     def __init__(self, solid=True, filename = path+"/bunny_data/bunny_volume_0.1_m4.vtk" ) -> None:
@@ -35,17 +36,15 @@ class Particle_Bunny:
         else:
             for i in range(self.num_particles):
                 self.particle_pos[i] = bunnyv_pos[i] * 2.3 
-                self.particle_pos[i] += ti.math.vec3([17., 18., 12.])
-           
+                self.particle_pos[i] += ti.math.vec3([17., 18., 12.]) 
 
-    def center_of_mass(self):
-        #TODO
-        self.center_of_mass = ti.Vector.field(3, dtype=ti.f32, shape = 1)
-        self.center_of_mass.fill(0)
-        for i in range(3):
-            self.center_of_mass[i] += self.particle_pos[i]
-        
-
-    def shape_matching(self):
-        #TODO
-        return
+        self.center_of_mass = ti.Vector.field(3, dtype=ti.f32, shape = 1)    
+        self.particle_offset_CoM = ti.Vector.field(3, dtype=ti.f32, shape = self.num_particles) 
+    
+    @ti.kernel       
+    def initialize(self):
+        self.center_of_mass.fill(0.)
+        for i in range(self.num_particles):
+                self.center_of_mass[0] += self.particle_pos[i]/self.num_particles
+        for i in range(self.num_particles):    
+                self.particle_offset_CoM[i] = self.particle_pos[i] - self.center_of_mass[0]
