@@ -7,8 +7,6 @@ import numpy as np
 
 import taichi as ti
 
-import meshio
-
 from script.particle_bunny import Particle_Bunny
 
 
@@ -56,12 +54,13 @@ neighbor_radius = h_ * 1.05
 
 poly6_factor = 315.0 / 64.0 / math.pi
 spiky_grad_factor = -45.0 / math.pi
+num_fluid_particles = num_particles    
 bunny = Particle_Bunny(solid=False)
 ## show case for rigid bunny sampling
-#bunny = Particle_Bunny()
-num_fluid_particles = num_particles    
+# bunny = Particle_Bunny()
 num_particles += bunny.num_particles
 
+# particle position
 old_positions = ti.Vector.field(dim, float)
 positions = ti.Vector.field(dim, float)
 velocities = ti.Vector.field(dim, float)
@@ -330,7 +329,7 @@ while window.running:
         scene.particles(bunny.particle_pos, index_count = bunny.num_particles_volume, color = (0.88, 0.36, 0.19), radius = particle_radius*2.5)
         scene.particles(bunny.particle_pos, index_offset = bunny.num_particles_volume, color = (0.58, 0.76, 0.79), radius = particle_radius*2.5)
     else :    
-        scene.particles(bunny.particle_pos, index_offset = num_fluid_particles, color = (0.88, 0.36, 0.19), radius = particle_radius*2.5)
+        scene.particles(bunny.particle_pos, color = (0.88, 0.36, 0.19), radius = particle_radius*2.5)
     move_board()
     run_pbf()
     canvas.scene(scene)
