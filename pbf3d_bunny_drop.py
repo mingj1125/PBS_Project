@@ -311,6 +311,7 @@ scene = ti.ui.Scene()
 camera = ti.ui.Camera()
 camera.position(boundary[0]/2+1,40, -50)
 camera.lookat(boundary[0]/2+1 ,7, 0)
+counter = 0
 while window.running:
     camera.track_user_inputs(window, movement_speed=0.03, hold_key=ti.ui.RMB)
     scene.set_camera(camera)
@@ -333,4 +334,7 @@ while window.running:
     move_board()
     run_pbf()
     canvas.scene(scene)
+    window.save_image("images/pbf-"+str(counter)+".png")
+    counter += 1
+
     window.show()
