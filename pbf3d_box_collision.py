@@ -5,18 +5,19 @@ import math
 import numpy as np
 import taichi as ti
 import time
+import meshio
 
 ## include own code
 from script.helper_function import *
 from global_variabel import *
 import script.box_collision as bc
 import script.sphere_collision as sc
+import script.mesh_collision as mc
 
 ti.init(arch=ti.cuda, dynamic_index=True)
 
-
 ## initialize vectors
-# sphere position
+# sphere positions
 sc.collision_sphere_positions = ti.Vector.field(dim, float)
 ti.root.dense(ti.i, num_collision_spheres).place(sc.collision_sphere_positions)
 # box size
@@ -37,7 +38,8 @@ ti.root.dense(ti.i, num_collision_boxes).place(bc.collision_boxes_positions)
 old_positions = ti.Vector.field(dim, float)
 positions = ti.Vector.field(dim, float)
 velocities = ti.Vector.field(dim, float)
-ti.root.dense(ti.i, num_particles).place(old_positions, positions, velocities)
+#mass = ti.field(int)
+ti.root.dense(ti.i, num_particles).place(old_positions, positions, velocities)#, mass)
 # grid
 grid_num_particles = ti.field(int)
 grid2particles = ti.field(ti.i32)
@@ -57,6 +59,9 @@ position_deltas = ti.Vector.field(dim, float)
 board_states = ti.Vector.field(2, float)
 ti.root.dense(ti.i, num_particles).place(lambdas, position_deltas)
 ti.root.place(board_states)
+# mesh
+mc.mesh_position = ti.Vector.field(dim, dtype=ti.f32, shape = num_bodies_particles)
+mc.mesh_rotation = ti.Vector.field(dim, dtype=ti.f32, shape = num_collision_bodies)
 
 @ti.func
 def confine_position_to_boundary(p):
@@ -90,7 +95,7 @@ def prologue():
     for i in positions:
         old_positions[i] = positions[i]
     # apply gravity within boundary
-    for i in positions:
+    for i in range(num_fluid_particles):
         g = ti.Vector([0.0, -9.8, 0.0])
         pos, vel = positions[i], velocities[i]
         vel += g * time_delta
@@ -131,8 +136,8 @@ def prologue():
 def substep():
     # compute lambdas
     # Eq (8) ~ (11)
-    for p_i in positions:
-        pos_i = positions[p_i]
+    for p_i in range(num_fluid_particles):
+        pos_i = positions[p_i] 
 
         grad_i = ti.Vector([0.0, 0.0, 0.0])
         sum_gradient_sqr = 0.0
@@ -158,27 +163,32 @@ def substep():
     # compute position deltas
     # Eq(12), (14)
     for p_i in positions:
-        pos_i = positions[p_i]
-        lambda_i = lambdas[p_i]
+        if get_particle_phase(p_i) == 0:
+            pos_i = positions[p_i]
+            lambda_i = lambdas[p_i]
 
-        pos_delta_i = ti.Vector([0.0, 0.0, 0.0])
-        for j in range(particle_num_neighbors[p_i]):
-            p_j = particle_neighbors[p_i, j]
-            if p_j < 0:
-                break
-            lambda_j = lambdas[p_j]
-            pos_ji = pos_i - positions[p_j]
-            scorr_ij = compute_scorr(pos_ji)
-            pos_delta_i += (lambda_i + lambda_j + scorr_ij) * \
-                spiky_gradient(pos_ji, h_)
+            pos_delta_i = ti.Vector([0.0, 0.0, 0.0])
+            for j in range(particle_num_neighbors[p_i]):
+                p_j = particle_neighbors[p_i, j]
+                if p_j < 0:
+                    break
+                lambda_j = lambdas[p_j]
+                pos_ji = pos_i - positions[p_j]
+                scorr_ij = compute_scorr(pos_ji)
+                pos_delta_i += (lambda_i + lambda_j + scorr_ij) * \
+                    spiky_gradient(pos_ji, h_)
 
-        pos_delta_i /= rho0
-        position_deltas[p_i] = pos_delta_i
+            pos_delta_i /= rho0
+            position_deltas[p_i] = pos_delta_i
+        else:
+            position_deltas[p_i] = ti.Vector([0.0,0.0,0.0])
 
     # apply position deltas
     for i in positions:
-        # positions[i], velocities[i] = sc.particle_collide_collision_sphere(positions[i], velocities[i])
-        positions[i], velocities[i] = bc.particle_collide_collision_box(positions[i], velocities[i])
+        if bool_sphere:
+            positions[i], velocities[i] = sc.particle_collide_collision_sphere(positions[i], velocities[i])
+        if bool_box:
+            positions[i], velocities[i] = bc.particle_collide_collision_box(positions[i], velocities[i])
         positions[i] += position_deltas[i]
 
 @ti.kernel
@@ -206,7 +216,6 @@ def epilogue():
             K += (mass / rho0) * (velocities[p_j] - velocities[p_i]) * density_constraint
         velocities[p_i] = velocities[p_i] + c * K
 
-
 def run_pbf():
     prologue()
     for _ in range(pbf_num_iters):
@@ -226,6 +235,11 @@ def init_particles():
         for c in ti.static(range(dim)):
             velocities[i][c] = (ti.random() - 0.5) * 4
     board_states[None] = ti.Vector([boundary[0] - epsilon, -0.0])
+    # add mesh particles to all particles
+    if bool_mesh:
+        for i in range(num_bodies_particles):
+            positions[i+num_fluid_particles] = mc.mesh_position[i]
+            velocities[i+num_fluid_particles] = ti.math.vec3([0., 0., 0.])
 
 ## print func
 def print_stats():
@@ -245,14 +259,20 @@ def print_init():
             +" number of particles: "+str(num_particles)+"\n"
             +" particle radius:     "+str(particle_radius)+"\n"
             +" number of spheres:   "+str(num_collision_spheres)+"\n"
-            +" number of boxes:     "+str(num_collision_boxes))
+            +" number of boxes:     "+str(num_collision_boxes)+"\n"
+            +" number of meshes:    "+str(num_collision_bodies)+"\n"
+            +" number of mesh part: "+str(num_bodies_particles))
     print('-'*term_size.columns)
 
 def main():
     print_init()
+    if bool_mesh:
+        mc.init_collision_bodies()
     init_particles()
-    # sc.init_collision_spheres()
-    bc.init_collision_boxes()
+    if bool_sphere:
+        sc.init_collision_spheres()
+    if bool_box:
+        bc.init_collision_boxes()
     window = ti.ui.Window("PBF_3D", screen_res)
     canvas = window.get_canvas()
     scene = ti.ui.Scene()
@@ -272,10 +292,17 @@ def main():
         scene.ambient_light((0.8, 0.8, 0.8))
         scene.point_light(pos=(0.5, 1.5, 1.5), color=(1, 1, 1))
         # draw particles and collision obj
-        scene.particles(positions, color = (0.18, 0.26, 0.79), radius = particle_radius)
-        scene.particles(bc.vertices, color = (0.79, 0.26, 0.18), radius = particle_radius)
-        # scene.particles(sc.collision_sphere_positions, color = (0.7, 0.4, 0.4), radius = collision_sphere_radius)
-        scene.lines(bc.lines, width=1, color = (0.79, 0.26, 0.18))
+        scene.particles(positions, index_count = num_fluid_particles, color = (0.18, 0.36, 0.79), radius = particle_radius)
+        if bool_sphere:
+            scene.particles(sc.collision_sphere_positions, color = (0.7, 0.4, 0.4), radius = collision_sphere_radius)
+        if bool_box:
+            scene.particles(bc.vertices, color = (0.79, 0.26, 0.18), radius = particle_radius)
+            scene.lines(bc.lines, width=1, color = (0.79, 0.26, 0.18))
+        if bool_mesh:
+            p_idx = num_fluid_particles
+            for b_idx in range(num_collision_bodies):
+                scene.particles(positions, index_count=mesh_sizes[b_idx], index_offset=p_idx, color=(0.78, 0.36+b_idx*0.2, 0.79), radius = particle_radius)
+                p_idx += mesh_sizes[b_idx]
 
         # step
         if not bool_pause:

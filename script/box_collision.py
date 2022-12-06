@@ -50,14 +50,15 @@ def particle_collide_collision_box(p,v):
 
 # box initialization
 @ti.kernel
-def init_collision_boxes():    
+def init_collision_boxes():
+    bmax = ti.Vector([boundary[0], boundary[1], boundary[2]])  
     num_lines = 0
     for box_idx in range(num_collision_boxes):
         # midpoint
-        offs = ti.Vector([0.,0.,0.])
+        offs = ti.Vector([10.,0.,0.])
         diff = ti.Vector([10.,0.,0.])
         box_half_diag = collision_box_size[box_idx]*0.5
-        midpoint = box_half_diag + (box_idx+1)*diff + offs
+        midpoint = box_half_diag + (box_idx)*diff + offs
         # boundary artefact
         new_midpoint = midpoint
         new_size = box_half_diag
@@ -65,6 +66,9 @@ def init_collision_boxes():
             if abs(midpoint[d] - box_half_diag[d]) <= tol:
                 new_size[d] = 2*box_half_diag[d]
                 new_midpoint[d] = 0.
+            elif abs(midpoint[d] + box_half_diag[d] - bmax[d]) <= tol:
+                new_size[d] = 2*box_half_diag[d]
+                new_midpoint[d] = bmax[d]
         collision_box_size[box_idx] = 2*new_size
         collision_boxes_positions[box_idx] = new_midpoint
         # vertices

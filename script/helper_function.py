@@ -1,5 +1,6 @@
-import math
 import taichi as ti
+import numpy as np
+from math import *
 
 from global_variabel import *
 
@@ -39,3 +40,26 @@ def is_in_grid(c):
     # @c: Vector(i32)
     return 0 <= c[0] and c[0] < grid_size[0] and 0 <= c[1] and c[
         1] < grid_size[1] and 0 <= c[2] and c[2] < grid_size[2]
+
+def rotation_mat(a, b, c):
+    R_x = np.array([[1., 0., 0.], [0., cos(a), -sin(a)], [0., sin(a), cos(a)]])
+    R_y = np.array([[cos(b), 0., sin(b)], [0., 1., 0.], [-sin(b), 0., cos(b)]])
+    R_z = np.array([[cos(c), -sin(c), 0.], [sin(c), cos(c), 0.], [0., 0., 1.]])
+
+    R = R_z @ R_y @ R_x
+    return R
+
+@ti.func
+def get_particle_phase(p_idx):
+    # phase
+    ph_particle = 1
+    if p_idx < particle_numbers[0]:
+        # fluid
+        ph_particle = 0
+    return ph_particle
+
+@ti.func
+def get_particle_info(p_idx):
+    particle_phase = get_particle_phase(p_idx)
+    particle_id = get_particle_obj
+    return particle_phase, particle_id
