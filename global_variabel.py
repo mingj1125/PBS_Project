@@ -19,7 +19,7 @@ cell_recpr = 1.0 / cell_size
 # terminal params
 term_size = os.get_terminal_size()
 # window params
-bool_record = True
+bool_record = False
 bool_pause = False
 
 ## simulation params
@@ -57,8 +57,10 @@ num_collision_boxes = 0
 num_lines_per_box = 12
 
 ## body params
-num_collision_bodies = 1
+num_collision_bodies = 2
 num_bodies_particles = 0
+mesh_names = ["meshes/bunny_dense.vtk","meshes/bunny_dense.vtk"]
+mesh_sizes = []
 # mesh input
 mesh_names = ["meshes/bunny_dense.vtk","meshes/bunny_dense.vtk"]
 mesh_sizes = []
