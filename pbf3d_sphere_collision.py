@@ -137,7 +137,7 @@ def confine_position_to_boundary(p):
 
 
 @ti.func
-def particle_collide_collision_sphere(p,v):
+def particle_collide_collision_sphere(p):
     for i in range(num_collision_spheres):
         sdf_value = (p-collision_sphere_positions[i]).norm()- \
                         (collision_sphere_radius+particle_radius_in_world+collision_contact_offset)
@@ -145,9 +145,9 @@ def particle_collide_collision_sphere(p,v):
             sdf_normal = (p-collision_sphere_positions[i])/(p-collision_sphere_positions[i]).norm()
             closest_p_on_sphere = p - sdf_value*sdf_normal
             p = closest_p_on_sphere + sdf_normal * (particle_radius_in_world + collision_contact_offset + epsilon * ti.random())
-            v -= v.dot(sdf_normal)*sdf_normal*2.0
-            v *= collision_velocity_damping
-    return p,v
+            # v -= v.dot(sdf_normal)*sdf_normal*2.0
+            # v *= collision_velocity_damping
+    return p
 
 
 @ti.kernel
@@ -175,7 +175,7 @@ def prologue():
         vel += g * time_delta
         pos += vel * time_delta
         positions[i] = confine_position_to_boundary(pos)
-        positions[i], velocities[i] = particle_collide_collision_sphere(positions[i], velocities[i])
+        positions[i] = particle_collide_collision_sphere(positions[i])
 
     # clear neighbor lookup table
     for I in ti.grouped(grid_num_particles):
@@ -257,7 +257,7 @@ def substep():
 
     # apply position deltas
     for i in positions:
-        positions[i], velocities[i] = particle_collide_collision_sphere(positions[i], velocities[i])
+        positions[i] = particle_collide_collision_sphere(positions[i])
         positions[i] += position_deltas[i]
 
 
@@ -270,7 +270,7 @@ def epilogue():
     # update velocities
     for i in positions:
         velocities[i] = (positions[i] - old_positions[i]) / time_delta
-        positions[i], velocities[i] = particle_collide_collision_sphere(positions[i], velocities[i])
+        positions[i] = particle_collide_collision_sphere(positions[i])
     # no vorticity/xsph because we cannot do cross product in 2D...
     # TO DO for 3D
     c = 0.01
@@ -309,7 +309,7 @@ def init_particles():
             velocities[i][c] = (ti.random() - 0.5) * 4
         p = positions[i]
         v = velocities[i]    
-        particle_collide_collision_sphere(p,v)    
+        particle_collide_collision_sphere(p)    
     board_states[None] = ti.Vector([boundary[0] - epsilon, -0.0])
 
 @ti.kernel
