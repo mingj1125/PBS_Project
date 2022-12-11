@@ -9,7 +9,7 @@ def round_up(f, s):
 ## screen params
 screen_res = (1566, 1500)
 screen_to_world_ratio = 10.0
-bound = (400, 300, 400)
+bound = (500, 300, 400)
 boundary = (bound[0] / screen_to_world_ratio,
             bound[1] / screen_to_world_ratio,
             bound[2] / screen_to_world_ratio)
@@ -28,9 +28,9 @@ dim = 3
 # tolerance
 tol = 1e-6
 # num of particles
-num_particles_x = 20
-num_particles_y = 30
-num_particles_z = 30
+num_particles_x = 10
+num_particles_y = 35
+num_particles_z = 50
 num_particles = num_particles_x * num_particles_y * num_particles_z
 num_fluid_particles = num_particles
 max_num_particles_per_cell = 100
@@ -59,10 +59,13 @@ num_lines_per_box = 12
 ## body params
 num_collision_bodies = 2
 num_bodies_particles = 0
-mesh_names = ["meshes/bunny_dense.vtk","meshes/bunny_dense.vtk"]
 mesh_sizes = []
-# mesh input
+# mesh input for bunnies
 mesh_names = ["meshes/bunny_dense.vtk","meshes/bunny_dense.vtk"]
+# mesh input for bathroom scene
+# mesh_names = ["meshes/bathtub_volume.vtk","meshes/bunny.vtk","meshes/bunny.vtk"]
+# mesh input for lighthouse scene
+# mesh_names = ["meshes/lighthouse.vtk","meshes/sea_arch.vtk"]
 mesh_sizes = []
 for i in range(num_collision_bodies):
     mesh_obj = meshio.read(mesh_names[i])
@@ -98,6 +101,8 @@ pbf_num_iters = 5
 corr_deltaQ_coeff = 0.3
 corrK = 0.001
 neighbor_radius = h_ * 1.05
+# solid density scaling eq.27 unified particle system
+s = 0.5
 
 poly6_factor = 315.0 / 64.0 / math.pi
 spiky_grad_factor = -45.0 / math.pi
