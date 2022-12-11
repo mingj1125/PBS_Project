@@ -6,6 +6,7 @@ import math
 import numpy as np
 
 import taichi as ti
+from script.helper_function import get_particle_phase
 
 ti.init(arch=ti.cuda)
 
@@ -36,8 +37,8 @@ time_delta = 1.0 / 20.0
 epsilon = 1e-5
 particle_radius = 0.1
 particle_radius_in_world = particle_radius / screen_to_world_ratio
-num_collision_spheres = 2
-collision_sphere_radius = 4.
+num_collision_spheres = 5
+collision_sphere_radius = 2.
 collision_contact_offset = 1.5*particle_radius
 
 # PBF params
@@ -46,13 +47,18 @@ mass = 1.0
 rho0 = 1.0
 lambda_epsilon = 100.0
 pbf_num_iters = 8
-stablization_iters = 20
+stablization_iters = 8
 corr_deltaQ_coeff = 0.3
 corrK = 0.001
 neighbor_radius = h_ * 1.05
 
 poly6_factor = 315.0 / 64.0 / math.pi
 spiky_grad_factor = -45.0 / math.pi
+
+max_num_spheres_per_cell = 50
+max_num_virtual_neighbors = 50
+virtual_particle_neighbors_dist = (particle_radius*4*h_)
+neighborhood_particle_off = math.floor(neighbor_radius/virtual_particle_neighbors_dist)
 
 old_positions = ti.Vector.field(dim, float)
 positions = ti.Vector.field(dim, float)
@@ -65,6 +71,10 @@ grid_num_particles = ti.field(int)
 grid2particles = ti.field(ti.i32)
 particle_num_neighbors = ti.field(int)
 particle_neighbors = ti.field(int)
+grid_num_spheres = ti.field(int)
+grid2spheres = ti.field(ti.i32)
+particle_num_virtual_neighbors = ti.field(int)
+virtual_particle_neighbors = ti.Vector.field(dim, float)
 lambdas = ti.field(float)
 position_deltas = ti.Vector.field(dim, float)
 # 0: x-pos, 1: timestep in sin()
@@ -74,11 +84,15 @@ ti.root.dense(ti.i, num_particles).place(old_positions, positions, velocities)
 ti.root.dense(ti.i, num_collision_spheres).place(old_collision_sphere_positions, \
                 collision_sphere_positions, collision_sphere_velocities, collision_sphere_weights)
 grid_snode = ti.root.dense(ti.ijk, grid_size)
-grid_snode.place(grid_num_particles)
+grid_snode.place(grid_num_particles, grid_num_spheres)
 grid_snode.dense(ti.l, max_num_particles_per_cell).place(grid2particles)
+grid_snode.dense(ti.l, max_num_spheres_per_cell).place(grid2spheres)
 nb_node = ti.root.dense(ti.i, num_particles)
 nb_node.place(particle_num_neighbors)
 nb_node.dense(ti.j, max_num_neighbors).place(particle_neighbors)
+vnb_node = ti.root.dense(ti.i, num_particles)
+vnb_node.place(particle_num_virtual_neighbors)
+vnb_node.dense(ti.j, max_num_virtual_neighbors).place(virtual_particle_neighbors)
 ti.root.dense(ti.i, num_particles).place(lambdas, position_deltas)
 ti.root.place(board_states)
 
@@ -148,10 +162,19 @@ def particle_collide_collision_sphere(p):
         factor = (1.+1./collision_sphere_weights[i][0])                
         if sdf_value <= 0.:
             sdf_normal = (p-collision_sphere_positions[i])/(p-collision_sphere_positions[i]).norm()
-            p -= sdf_normal * (sdf_value + particle_radius_in_world + collision_contact_offset+ epsilon * ti.random())*1./factor
+            p -= sdf_normal *(sdf_value + particle_radius_in_world + collision_contact_offset+ epsilon * ti.random())*1./factor
             collision_sphere_positions[i] += sdf_normal * (sdf_value + particle_radius_in_world + collision_contact_offset) \
                                                 * 1./collision_sphere_weights[i][0]/factor
     return p
+
+@ti.func
+def static_mesh_particle_collide_collision_sphere(p):
+    for i in range(num_collision_spheres):
+        sdf_value = (p-collision_sphere_positions[i]).norm()- \
+                        (collision_sphere_radius+particle_radius_in_world+collision_contact_offset)           
+        if sdf_value <= 0.:
+            sdf_normal = (p-collision_sphere_positions[i])/(p-collision_sphere_positions[i]).norm()
+            collision_sphere_positions[i] += sdf_normal * (sdf_value + particle_radius_in_world + collision_contact_offset)   
 
 @ti.func
 def spheres_collision(p,j):
@@ -159,12 +182,12 @@ def spheres_collision(p,j):
         if (i == j): 
             continue
         sdf_value = (p-collision_sphere_positions[i]).norm()- \
-                        (2*collision_sphere_radius+collision_contact_offset)
+                        (2*collision_sphere_radius+collision_contact_offset*5)
         factor = (1./collision_sphere_weights[j][0]+1./collision_sphere_weights[i][0])                
         if sdf_value <= 0.:
             sdf_normal = (p-collision_sphere_positions[i])/(p-collision_sphere_positions[i]).norm()
-            p -= sdf_normal * (sdf_value + collision_contact_offset)*1./collision_sphere_weights[j][0]/factor
-            collision_sphere_positions[i] += sdf_normal * (sdf_value + collision_contact_offset) \
+            p -= sdf_normal * (sdf_value + collision_contact_offset*2)*1./collision_sphere_weights[j][0]/factor
+            collision_sphere_positions[i] += sdf_normal * (sdf_value + collision_contact_offset*2) \
                                             * 1./collision_sphere_weights[i][0]/factor
     return p
 
@@ -219,8 +242,12 @@ def prologue():
     # clear neighbor lookup table
     for I in ti.grouped(grid_num_particles):
         grid_num_particles[I] = 0
+    for I in ti.grouped(grid_num_spheres):
+        grid_num_spheres[I] = 0    
     for I in ti.grouped(particle_neighbors):
         particle_neighbors[I] = -1
+    for I in ti.grouped(virtual_particle_neighbors):
+        virtual_particle_neighbors[I] = [0., 0., 0.]
 
     # update grid
     for p_i in positions:
@@ -229,11 +256,16 @@ def prologue():
         # but we can directly use int Vectors as indices
         offs = ti.atomic_add(grid_num_particles[cell], 1)
         grid2particles[cell, offs] = p_i
+    for p_s in collision_sphere_positions:
+        cell = get_cell(collision_sphere_positions[p_s])
+        offs = ti.atomic_add(grid_num_spheres[cell], 1)
+        grid2spheres[cell, offs] = p_s
     # find particle neighbors
     for p_i in positions:
         pos_i = positions[p_i]
         cell = get_cell(pos_i)
         nb_i = 0
+        nb_i_v = 0
         for offs in ti.static(ti.grouped(ti.ndrange((-1, 2), (-1, 2), (-1, 2)))):
             cell_to_check = cell + offs
             if is_in_grid(cell_to_check):
@@ -243,7 +275,19 @@ def prologue():
                             pos_i - positions[p_j]).norm() < neighbor_radius:
                         particle_neighbors[p_i, nb_i] = p_j
                         nb_i += 1
+                for j in range(grid_num_spheres[cell_to_check]):
+                    p_j = grid2spheres[cell_to_check, j]
+                    pos_j = collision_sphere_positions[p_j]
+                    dist = (pos_i- pos_j).norm() 
+                    if dist < collision_sphere_radius + neighbor_radius:
+                        for particle_off_in_box in ti.grouped(ti.ndrange((-neighborhood_particle_off, neighborhood_particle_off), (-neighborhood_particle_off, neighborhood_particle_off), (-neighborhood_particle_off, neighborhood_particle_off))):
+                            p_insert = pos_i + particle_off_in_box*virtual_particle_neighbors_dist
+                            if nb_i < max_num_virtual_neighbors and (p_insert - pos_i).norm() > epsilon and (
+                                    pos_j - p_insert).norm() < collision_sphere_radius:
+                                virtual_particle_neighbors[p_i, nb_i_v] = p_insert
+                                nb_i_v += 1
         particle_num_neighbors[p_i] = nb_i
+        particle_num_virtual_neighbors[p_i] = nb_i_v      
 
 @ti.kernel
 def resolve_contact():
@@ -274,6 +318,18 @@ def substep():
             sum_gradient_sqr += grad_j.dot(grad_j)
             # Eq(2)
             density_constraint += poly6_value(pos_ji.norm(), h_)
+        if particle_num_virtual_neighbors[p_i] < particle_num_neighbors[p_i]*15:
+            for j in range(particle_num_virtual_neighbors[p_i]) :
+                pos_j = virtual_particle_neighbors[p_i, j]
+                norm = (pos_j-[0.,0.,0.]).norm()
+                if norm < epsilon :
+                    break
+                pos_ji = pos_i - pos_j
+                grad_j = spiky_gradient(pos_ji, h_)
+                grad_i += grad_j
+                sum_gradient_sqr += grad_j.dot(grad_j)
+                # Eq(2)
+                density_constraint += poly6_value(pos_ji.norm(), h_)
 
         # Eq(1)
         density_constraint = (mass * density_constraint / rho0) - 1.0
@@ -340,10 +396,10 @@ def epilogue():
 
 def run_pbf():
     prologue()
-    for _ in range(stablization_iters):
-        resolve_contact()
+    for _ in range(stablization_iters*2):
+        resolve_contact()    
     for _ in range(pbf_num_iters):
-        substep()
+        substep()    
     epilogue()
 
 
@@ -368,7 +424,7 @@ def init_collision_spheres():
         delta = h_ * 1.8
         offs = ti.Vector([boundary[0]*0.15, boundary[1] * 0.2,  boundary[2] * 0.3])
         collision_sphere_positions[i] = ti.Vector([2*i*collision_sphere_radius,i%2,i%2*collision_sphere_radius/2.])*delta + offs
-        collision_sphere_weights[i][0] = i*10.+5.
+        collision_sphere_weights[i][0] = (i*6+20.)
 
 
 def print_stats():
@@ -395,10 +451,10 @@ while window.running:
     scene.ambient_light((0.8, 0.8, 0.8))
     scene.point_light(pos=(0.5, 1.5, 1.5), color=(1, 1, 1))
     scene.particles(positions, color = (0.18, 0.26, 0.79), radius = particle_radius)
-    scene.particles(collision_sphere_positions, color = (0.7, 0.4, 0.4), radius = collision_sphere_radius)
+    # scene.particles(collision_sphere_positions, color = (0.7, 0.4, 0.4), radius = collision_sphere_radius)
     # draw a smaller ball to avoid visual penetration if you don't like using contact offset
-    scene.particles(collision_sphere_positions, color = (0.7, 0.4, 0.4), radius = collision_sphere_radius*0.92)
-    # move_board()
+    scene.particles(collision_sphere_positions, color = (0.7, 0.4, 0.4), radius = collision_sphere_radius+particle_radius*4)
+    move_board()
     run_pbf()
     canvas.scene(scene)
     window.show()
