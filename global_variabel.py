@@ -9,10 +9,12 @@ def round_up(f, s):
 ## screen params
 screen_res = (1566, 1500)
 screen_to_world_ratio = 10.0
+# boundary
 bound = (400, 300, 400)
 boundary = (bound[0] / screen_to_world_ratio,
             bound[1] / screen_to_world_ratio,
             bound[2] / screen_to_world_ratio)
+# cell
 cell_size = 2.51
 cell_recpr = 1.0 / cell_size
 
@@ -43,9 +45,6 @@ particle_radius_in_world = particle_radius / screen_to_world_ratio
 # grid size
 grid_size = (round_up(boundary[0], 1), round_up(boundary[1], 1), round_up(boundary[2], 1))
 
-## particle numbers vector
-particle_numbers = [num_fluid_particles]
-
 ## spheres params
 num_collision_spheres = 0
 collision_sphere_radius = 4.
@@ -53,24 +52,29 @@ collision_contact_offset = 0.9*particle_radius
 collision_velocity_damping = 0.001
 
 ## box params
-num_collision_boxes = 0
+num_collision_boxes = 2
 num_lines_per_box = 12
 
-## body params
-num_collision_bodies = 2
-num_bodies_particles = 0
-mesh_names = ["meshes/bunny_dense.vtk","meshes/bunny_dense.vtk"]
-mesh_sizes = []
+## mesh params
+# static
+num_static_meshes = 1
+num_static_mesh_particles = 0
+# dynamic
+num_dynamic_meshes = 1
+num_dynamic_mesh_particles = 0
 # mesh input
-mesh_names = ["meshes/bunny_dense.vtk","meshes/bunny_dense.vtk"]
-mesh_sizes = []
-for i in range(num_collision_bodies):
-    mesh_obj = meshio.read(mesh_names[i])
-    mesh_points = mesh_obj.points
-    mesh_sizes.append(mesh_points.shape[0])
-    particle_numbers.append(mesh_points.shape[0])
-    num_bodies_particles += mesh_points.shape[0]
-num_particles += num_bodies_particles
+mesh_names = ["meshes/bunny_dense.vtk"]
+# mesh_sizes = []
+# for i in range(num_collision_bodies):
+#     mesh_obj = meshio.read(mesh_names[i])
+#     mesh_points = mesh_obj.points
+#     mesh_sizes.append(mesh_points.shape[0])
+#     particle_numbers.append(mesh_points.shape[0])
+#     num_bodies_particles += mesh_points.shape[0]
+# num_particles += num_bodies_particles
+
+## particle numbers vector
+particle_numbers = [num_fluid_particles]
 
 ## object bools
 bool_box = True
@@ -84,7 +88,7 @@ if  num_collision_spheres == 0:
     num_collision_spheres = 1
 
 bool_mesh = True
-if  num_collision_bodies == 0:
+if  num_static_meshes == 0 and num_dynamic_meshes == 0:
     bool_mesh = False
     num_collision_bodies = 1
     num_bodies_particles = 1
@@ -95,6 +99,7 @@ mass = 1.0
 rho0 = 1.0
 lambda_epsilon = 100.0
 pbf_num_iters = 5
+stablization_iters = 5
 corr_deltaQ_coeff = 0.3
 corrK = 0.001
 neighbor_radius = h_ * 1.05
