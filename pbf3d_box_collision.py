@@ -12,7 +12,7 @@ from script.helper_function import *
 from global_variabel import *
 import script.box_collision as bc
 import script.sphere_collision as sc
-import script.mesh_collision as mc
+# import script.mesh_collision as mc
 
 ti.init(arch=ti.cuda, dynamic_index=True)
 
@@ -76,8 +76,8 @@ board_states = ti.Vector.field(2, float)
 ti.root.dense(ti.i, num_particles).place(lambdas, position_deltas)
 ti.root.place(board_states)
 # mesh
-mc.mesh_position = ti.Vector.field(dim, dtype=ti.f32, shape = num_bodies_particles)
-mc.mesh_rotation = ti.Vector.field(dim, dtype=ti.f32, shape = num_collision_bodies)
+# mc.mesh_position = ti.Vector.field(dim, dtype=ti.f32, shape = num_bodies_particles)
+# mc.mesh_rotation = ti.Vector.field(dim, dtype=ti.f32, shape = num_collision_bodies)
 
 @ti.func
 def confine_position_to_boundary(p):
@@ -272,10 +272,10 @@ def init_particles():
             velocities[i][c] = (ti.random() - 0.5) * 4
     board_states[None] = ti.Vector([boundary[0] - epsilon, -0.0])
     # add mesh particles to all particles
-    if bool_mesh:
-        for i in range(num_bodies_particles):
-            positions[i+num_fluid_particles] = mc.mesh_position[i]
-            velocities[i+num_fluid_particles] = ti.math.vec3([0., 0., 0.])
+    # if bool_mesh:
+    #     for i in range(num_bodies_particles):
+    #         positions[i+num_fluid_particles] = mc.mesh_position[i]
+    #         velocities[i+num_fluid_particles] = ti.math.vec3([0., 0., 0.])
 
 @ti.kernel
 def replace_init_particle():
@@ -310,13 +310,13 @@ def print_init():
         print(" number of boxes:      "+str(num_collision_boxes))
     else:
         print(" number of boxes:      0")
-    if bool_mesh:
-        print(" number of meshes:     "+str(num_collision_bodies))
-    else:
-        print(" number of meshes:     0")
-    print(    " number of particles:  "+str(num_particles)+"\n"
-            + " number of fluid part: "+str(num_fluid_particles)+"\n"
-            + " number of mesh part:  "+str(num_bodies_particles))
+    # if bool_mesh:
+    #     print(" number of meshes:     "+str(num_collision_bodies))
+    # else:
+    #     print(" number of meshes:     0")
+    # print(    " number of particles:  "+str(num_particles)+"\n"
+    #         + " number of fluid part: "+str(num_fluid_particles)+"\n"
+    #         + " number of mesh part:  "+str(num_bodies_particles))
     print('-'*term_size.columns)
 
 def print_particle_num():
@@ -328,8 +328,8 @@ def print_particle_num():
 def main():
     print_init()
     print_particle_num()
-    if bool_mesh:
-        mc.init_collision_bodies()
+    # if bool_mesh:
+    #     mc.init_collision_bodies()
     init_particles()
     if bool_sphere:
         sc.init_collision_spheres()
@@ -341,8 +341,15 @@ def main():
     canvas = window.get_canvas()
     scene = ti.ui.Scene()
     camera = ti.ui.Camera()
-    camera.position(boundary[0]/2+1,40, -50)
-    camera.lookat(boundary[0]/2+1 ,7, 0)
+    camera_position = ti.Vector([(-1./2.)*math.pi,(1./4.)*math.pi, 60.])  
+    camera_lookat = ti.Vector([boundary[0]/2+1 ,7, 0])
+    set_camera_position(camera, camera_position, camera_lookat)
+    # camera.position(camera_position[0],camera_position[1],camera_position[2])
+    
+    camera_info = ti.Vector.field(dim, float)
+    ti.root.dense(ti.i, 2).place(camera_info)
+    camera_info[0] = camera_lookat
+    camera_info[1] = camera_position
 
     counter = 0
     global bool_pause
@@ -363,11 +370,12 @@ def main():
             scene.particles(bc.vertices, color = (0.79, 0.26, 0.18), radius = particle_radius)
             scene.particles(bc.collision_boxes_positions, color = (0.09, 0.6, 0.08), radius = particle_radius)
             scene.lines(bc.lines, width=1, color = (0.79, 0.26, 0.18))
-        if bool_mesh:
-            p_idx = num_fluid_particles
-            for b_idx in range(num_collision_bodies):
-                scene.particles(positions, index_count=mesh_sizes[b_idx], index_offset=p_idx, color=(0.78, 0.36+b_idx*0.2, 0.79), radius = particle_radius)
-                p_idx += mesh_sizes[b_idx]
+        # if bool_mesh:
+        #     p_idx = num_fluid_particles
+        #     for b_idx in range(num_collision_bodies):
+        #         scene.particles(positions, index_count=mesh_sizes[b_idx], index_offset=p_idx, color=(0.78, 0.36+b_idx*0.2, 0.79), radius = particle_radius)
+        #         p_idx += mesh_sizes[b_idx]
+        scene.particles(camera_info, color = (1., 1., 1.), radius = particle_radius)
 
         # step
         if not bool_pause:
@@ -397,6 +405,47 @@ def main():
                 print("pause")
             else:
                 print("continue")
+        
+        if (window.is_pressed(ti.GUI.LEFT)):
+            camera_position[0] = camera_position[0] + 0.01 % 2*math.pi
+            set_camera_position(camera, camera_position, camera_lookat)
+        elif (window.is_pressed(ti.GUI.RIGHT)):
+            camera_position[0] = camera_position[0] - 0.01 % 2*math.pi
+            set_camera_position(camera, camera_position, camera_lookat)
+        if (window.is_pressed(ti.GUI.UP)):
+            camera_position[1] = max(min(camera_position[1] + 0.01, math.pi/2.), -math.pi/2.)
+            set_camera_position(camera, camera_position, camera_lookat)
+        elif (window.is_pressed(ti.GUI.DOWN)):
+            camera_position[1] = max(min(camera_position[1] - 0.01, math.pi/2.), -math.pi/2.)
+            set_camera_position(camera, camera_position, camera_lookat)
+        if (window.is_pressed('i')):
+            camera_position[2] = max(camera_position[2] - 1., 0.)
+            set_camera_position(camera, camera_position, camera_lookat)
+        elif (window.is_pressed('o')):
+            camera_position[2] = max(camera_position[2] + 1., 0.)
+            set_camera_position(camera, camera_position, camera_lookat)
+        
+        if (window.is_pressed('a')):
+            camera_lookat[0] = camera_lookat[0] + 1.
+            set_camera_position(camera, camera_position, camera_lookat)
+        elif (window.is_pressed('d')):
+            camera_lookat[0] = camera_lookat[0] - 1.
+            set_camera_position(camera, camera_position, camera_lookat)
+        if (window.is_pressed('f')):
+            camera_lookat[1] = camera_lookat[1] + 1.
+            set_camera_position(camera, camera_position, camera_lookat)
+        elif (window.is_pressed('g')):
+            camera_lookat[1] = camera_lookat[1] - 1.
+            set_camera_position(camera, camera_position, camera_lookat)
+        if (window.is_pressed('w')):
+            camera_lookat[2] = camera_lookat[2] + 1.
+            set_camera_position(camera, camera_position, camera_lookat)
+        elif (window.is_pressed('s')):
+            camera_lookat[2] = camera_lookat[2] - 1.
+            set_camera_position(camera, camera_position, camera_lookat)
+        
+        camera_info[0] = camera_lookat
+        camera_info[1] = camera_position
 
 if __name__ == "__main__":
     main()
