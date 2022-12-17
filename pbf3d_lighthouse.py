@@ -1,4 +1,5 @@
-## MESH & WATER
+# Macklin, M. and Müller, M., 2013. Position based fluids. ACM Transactions on Graphics (TOG), 32(4), p.104.
+# 3D extension from Taichi 2d implementation by Ye Kuang (k-ye)
 
 import math
 import numpy as np
@@ -12,72 +13,31 @@ from global_variabel import *
 import script.box_collision as bc
 import script.sphere_collision as sc
 import script.mesh_collision as mc
-from script.particle_bunny import Particle_Bunny
 
 ti.init(arch=ti.cuda, dynamic_index=True)
 
-## prepare unified particle representation
-if bool_mesh:
-    mc.mesh_names = mesh_input
-    for j in range(num_static_meshes+num_dynamic_meshes+1):
-        if j == 0: continue
-        # dynamic
-        elif 0 < j and j < num_dynamic_meshes+1:
-            if mc.mesh_names[j-1] == "NULL":
-                bunny = Particle_Bunny()
-            else:
-                bunny = Particle_Bunny(filename=mc.mesh_names[j-1])
-            bunny.initialize()
-            particle_offset_CoM = bunny.particle_offset_CoM
-            tmp = bunny.num_particles
-            num_dynamic_mesh_particles += tmp
-        # static
-        elif num_dynamic_meshes < j:
-            mesh = meshio.read(mc.mesh_names[j-1])
-            mesh_points = mesh.points
-            tmp = mesh_points.shape[0]
-            num_static_mesh_particles += tmp
-        particle_numbers.append(tmp)
-    num_mesh_particles = num_static_mesh_particles + num_dynamic_mesh_particles
-    num_particles += num_mesh_particles
-else:
-    # place dummy entries
-    particle_numbers.append(1)
-    particle_numbers.append(1)
-    particle_offset_CoM = ti.Vector.field(3, dtype=ti.f32, shape = 1) 
-    particle_offset_CoM[0] = ti.Vector([0.,0.,0.])
 
-particle_numbers = ti.Vector(particle_numbers)
+## change params (override global params)
+
 
 ## initialize vectors
-# mesh vectors
-center_of_mass = ti.Vector.field(dim, float)
-ti.root.dense(ti.i, num_dynamic_meshes).place(center_of_mass)
 # sphere positions
 sc.collision_sphere_positions = ti.Vector.field(dim, float)
 ti.root.dense(ti.i, num_collision_spheres).place(sc.collision_sphere_positions)
 # box size
 bc.collision_box_size = ti.Vector.field(dim, float)
 ti.root.dense(ti.i, num_collision_boxes).place(bc.collision_box_size)
-bc.collision_box_size[0] = ti.Vector([8.,8.,8.])
-bc.collision_box_size[1] = ti.Vector([8.,8.,8.])
+bc.collision_box_size[0] = ti.Vector([5.,16.,10.])
+bc.collision_box_size[1] = ti.Vector([5.,5.,5.])
 # box vertices
 bc.vertices = ti.Vector.field(dim, float)
 ti.root.dense(ti.i, 8*num_collision_boxes).place(bc.vertices)
 # box edges
 bc.lines = ti.Vector.field(dim, float)
 ti.root.dense(ti.i, 2*num_lines_per_box*num_collision_boxes).place(bc.lines)
-bc.lines_idx = ti.field(float)
-ti.root.dense(ti.i, 2*num_lines_per_box*num_collision_boxes).place(bc.lines_idx)
 # box midpoints
 bc.collision_boxes_positions = ti.Vector.field(dim, float)
 ti.root.dense(ti.i, num_collision_boxes).place(bc.collision_boxes_positions)
-# box velocites
-bc.collision_boxes_velocities = ti.Vector.field(dim, float)
-ti.root.dense(ti.i, num_collision_boxes).place(bc.collision_boxes_velocities)
-# box rotation
-bc.collision_boxes_rotations = ti.Vector.field(dim*dim, float)
-ti.root.dense(ti.i, num_collision_boxes).place(bc.collision_boxes_rotations)
 # particle position
 old_positions = ti.Vector.field(dim, float)
 positions = ti.Vector.field(dim, float)
@@ -103,6 +63,9 @@ position_deltas = ti.Vector.field(dim, float)
 board_states = ti.Vector.field(2, float)
 ti.root.dense(ti.i, num_particles).place(lambdas, position_deltas)
 ti.root.place(board_states)
+# mesh
+mc.mesh_position = ti.Vector.field(dim, dtype=ti.f32, shape = num_bodies_particles)
+mc.mesh_rotation = ti.Vector.field(dim, dtype=ti.f32, shape = num_collision_bodies)
 
 @ti.func
 def confine_position_to_boundary(p):
@@ -117,27 +80,6 @@ def confine_position_to_boundary(p):
             p[i] = bmax[i] - epsilon * ti.random()
     return p
 
-@ti.func
-def shape_matching(idx, particle_offset, particle_index):
-    A = ti.Matrix([[0.,0.,0.], [0.,0.,0.], [0.,0.,0.]], ti.f32)
-    #Paper: unified particle system Eq. 16
-    for i in range(particle_index): 
-        v3 = ti.math.vec3(positions[particle_offset+i]-center_of_mass[idx])
-        v4 = ti.math.vec3(particle_offset_CoM[i])
-        A += ti.math.mat3([[v3[0]*v4[0],v3[0]*v4[1],v3[0]*v4[2]],\
-                           [v3[1]*v4[0],v3[1]*v4[1],v3[1]*v4[2]],\
-                           [v3[2]*v4[0],v3[2]*v4[1],v3[2]*v4[2]]])
-
-    Q, _ = ti.polar_decompose(A, dt=ti.f32)   
-    for i in range(particle_index):
-        #Paper: unified particle system Eq. 15
-        v4 = ti.math.vec3(particle_offset_CoM[i])
-        e1 = ti.math.dot(ti.math.vec3([Q[0,0],Q[0,1],Q[0,2]]),v4)
-        e2 = ti.math.dot(ti.math.vec3([Q[1,0],Q[1,1],Q[1,2]]),v4)
-        e3 = ti.math.dot(ti.math.vec3([Q[2,0],Q[2,1],Q[2,2]]),v4)
-        v1 = ti.math.vec3([e1, e2, e3])
-        position_deltas[particle_offset+i] = (v1+center_of_mass[idx]) - positions[particle_offset+i]
-
 @ti.kernel
 def move_board():
     # probably more accurate to exert force on particles according to hooke's law.
@@ -150,17 +92,6 @@ def move_board():
     b[0] += -ti.sin(b[1] * np.pi / period) * vel_strength * time_delta
     board_states[None] = b
 
-@ti.func
-def update_center_of_mass():
-    center_of_mass.fill(0.)
-    tmp_num_particles = num_fluid_particles
-    for i in ti.static(range(num_dynamic_meshes+1)):
-        # dynamic
-        if 0 < i and i < num_dynamic_meshes+1:
-            num_of_1_mesh_particles = particle_numbers[i]
-            for j in range(num_of_1_mesh_particles):  
-                center_of_mass[i] += positions[tmp_num_particles+j]/num_of_1_mesh_particles
-            tmp_num_particles += num_of_1_mesh_particles
 
 @ti.kernel
 def prologue():
@@ -168,8 +99,8 @@ def prologue():
     for i in positions:
         old_positions[i] = positions[i]
     # apply gravity within boundary
-    g = ti.Vector([0.0, -9.8, 0.0])
-    for i in range(num_fluid_particles+num_dynamic_mesh_particles):
+    for i in range(num_fluid_particles):
+        g = ti.Vector([0.0, -9.8, 0.0])
         pos, vel = positions[i], velocities[i]
         vel += g * time_delta
         pos += vel * time_delta
@@ -204,14 +135,6 @@ def prologue():
                         nb_i += 1
         particle_num_neighbors[p_i] = nb_i
 
-    # apply gravity within boundary to box
-    if bool_box:
-        bound = ti.Vector([board_states[None][0], boundary[1], boundary[2]])
-        for i in range(num_collision_boxes):
-            pos, vel = bc.collision_boxes_positions[i], bc.collision_boxes_velocities[i]
-            vel += g * time_delta
-            pos += vel * time_delta
-            bc.confine_box_to_boundary(i, pos, bound)
 
 @ti.kernel
 def substep():
@@ -243,7 +166,7 @@ def substep():
                                                 lambda_epsilon)
     # compute position deltas
     # Eq(12), (14)
-    for p_i in range(num_particles):
+    for p_i in positions:
         if get_particle_phase(p_i) == 0:
             pos_i = positions[p_i]
             lambda_i = lambdas[p_i]
@@ -256,26 +179,24 @@ def substep():
                 lambda_j = lambdas[p_j]
                 pos_ji = pos_i - positions[p_j]
                 scorr_ij = compute_scorr(pos_ji)
+                spiky = spiky_gradient(pos_ji, h_)
+                if get_particle_phase(p_j) != 0: 
+                    spiky *= s
+                    scorr_ij *= s
                 pos_delta_i += (lambda_i + lambda_j + scorr_ij) * \
-                    spiky_gradient(pos_ji, h_)
+                    spiky
 
             pos_delta_i /= rho0
             position_deltas[p_i] = pos_delta_i
         else:
             position_deltas[p_i] = ti.Vector([0.0,0.0,0.0])
-    # update dynamic mesh
-    if bool_mesh:
-        update_center_of_mass()
-        tmp_num_particles = num_fluid_particles
-        for b_idx in ti.static(range(1, 1+num_dynamic_meshes)):    
-            shape_matching(b_idx, tmp_num_particles, particle_numbers[b_idx])
-            tmp_num_particles += particle_numbers[b_idx]
+
     # apply position deltas
-    for i in range(num_particles):
+    for i in positions:
         if bool_sphere:
             positions[i], velocities[i] = sc.particle_collide_collision_sphere(positions[i], velocities[i])
         if bool_box:
-            positions[i], velocities[i] = bc.particle_collide_dynamic_collision_box(positions[i], velocities[i])
+            positions[i], velocities[i] = bc.particle_collide_collision_box(positions[i], velocities[i])
         positions[i] += position_deltas[i]
 
 @ti.kernel
@@ -289,7 +210,7 @@ def epilogue():
         velocities[i] = (positions[i] - old_positions[i]) / time_delta
     # no vorticity/xsph because we cannot do cross product in 3D
     c = 0.01
-    for p_i in range(num_fluid_particles):
+    for p_i in positions:
         K = ti.Vector([0.0, 0.0, 0.0])
         pos_i = positions[p_i]
         density_constraint = 0.0
@@ -302,22 +223,9 @@ def epilogue():
             density_constraint += poly6_value(pos_ji.norm(), h_)
             K += (mass / rho0) * (velocities[p_j] - velocities[p_i]) * density_constraint
         velocities[p_i] = velocities[p_i] + c * K
-    # update box outline
-    if bool_box:
-        for box_idx in range(num_collision_boxes):
-            bc.calculate_box_vertices(box_idx)
-        bc.calculate_box_edges()
-
-@ti.kernel
-def resolve_contact():
-    if bool_box:
-        for k in range(num_collision_boxes):
-            bc.box_box_collision(k) 
 
 def run_pbf():
     prologue()
-    for _ in range(stablization_iters):
-        resolve_contact()
     for _ in range(pbf_num_iters):
         substep()
     epilogue()
@@ -325,50 +233,21 @@ def run_pbf():
 ## Init functions
 @ti.kernel
 def init_particles():
-    for i in range(num_fluid_particles):
+    for i in range(num_particles):
         delta = h_ * 0.8
-        offs = ti.Vector([(boundary[0] - delta * num_particles_x) * 0.5,
-                          boundary[1] * 0.02, 0.0])
+        offs = ti.Vector([(boundary[0] - delta * num_particles_x) * 0.9,
+                          boundary[1] * 0.2, 0.0])
         pos_y = i // (num_particles_x * num_particles_z)
         positions[i] = ti.Vector([i % num_particles_x, pos_y, (i - pos_y * (num_particles_x * num_particles_z)) // num_particles_x
                                   ]) * delta + offs
         for c in ti.static(range(dim)):
             velocities[i][c] = (ti.random() - 0.5) * 4
     board_states[None] = ti.Vector([boundary[0] - epsilon, -0.0])
-
-def load_mesh_particles():
-    mc.mesh_names = [bunny, "meshes/bunny_dense.vtk"]
-    tmp_num_particles = num_fluid_particles
-    for j in range(num_static_meshes+num_dynamic_meshes+1):
-        if j == 0: continue
-        R = rotation_mat(mc.mesh_rotation[j-1][0],mc.mesh_rotation[j-1][1],mc.mesh_rotation[j-1][2])
-        # dynamic
-        if 0 < j and j < num_dynamic_meshes+1:
-            tmp_index_particles = int(particle_numbers[j])
-            bunny_mesh = mc.mesh_names[j-1]
-            for i in range(tmp_index_particles):
-                positions[tmp_num_particles+i] = bunny_mesh.particle_pos[i] + ti.math.vec3([10.,10.,10.])
-                velocities[tmp_num_particles+i] = ti.math.vec3([0.,0.,0.])
-        # static
-        elif num_dynamic_meshes < j:
-            mesh = meshio.read(mc.mesh_names[j-1])
-            mesh_points = mesh.points
-            mc.print_mesh_info(j-1, mesh_points.shape[0], R)
-            for i in range(mesh_points.shape[0]):
-                positions[i+tmp_num_particles] = ti.Vector(R @ np.array(mesh_points[i])) * 10 + ti.math.vec3([15., 1., 5.]) + (j-1)*ti.math.vec3([0., 0., 5.])
-                velocities[i+tmp_num_particles] = ti.math.vec3([0., 0., 0.])
-        tmp_num_particles += int(particle_numbers[j])
-
-@ti.kernel
-def replace_init_particle():
-    for p_idx in range(num_fluid_particles):
-        p = positions[p_idx]
-        v = velocities[p_idx]
-        if bool_box:
-            p,v = bc.particle_collide_collision_box(p,v)
-        # if True:
-
-        positions[p_idx] = p
+    # add mesh particles to all particles
+    if bool_mesh:
+        for i in range(num_bodies_particles):
+            positions[i+num_fluid_particles] = mc.mesh_position[i] #+ ti.math.vec3([-4., 0., 0.])    
+            velocities[i+num_fluid_particles] = ti.math.vec3([0., 0., 0.])    
 
 ## print func
 def print_stats():
@@ -383,26 +262,24 @@ def print_stats():
 def print_init():
     print('='*term_size.columns)
     print("Position-Based Fluid 3D Simulation \n"
-            + " screen resolution:       "+str(screen_res[0])+"/"+str(screen_res[1])+"\n"
-            + " tolerance:               "+str(tol)+"\n"
-            + " particle radius:         "+str(particle_radius))
+            + " screen resolution:   "+str(screen_res[0])+"/"+str(screen_res[1])+"\n"
+            + " tolerance:           "+str(tol)+"\n"
+            + " particle radius:     "+str(particle_radius))
     if bool_sphere:
-        print(" number of spheres:       "+str(num_collision_spheres))
+        print(" number of spheres:   "+str(num_collision_spheres))
     else:
-        print(" number of spheres:       0")
+        print(" number of spheres:   0")
     if bool_box:
-        print(" number of boxes:         "+str(num_collision_boxes))
+        print(" number of boxes:     "+str(num_collision_boxes))
     else:
-        print(" number of boxes:         0")
+        print(" number of boxes:     0")
     if bool_mesh:
-        print(" number of meshes(stat):  "+str(num_static_meshes)+"\n"
-            + " number of meshes(dyn):   "+str(num_dynamic_meshes))
+        print(" number of meshes:    "+str(num_collision_bodies))
     else:
-        print(" number of meshes:        0")
-    print(    " number of particles:     "+str(num_particles)+"\n"
-            + " number of fluid part:    "+str(num_fluid_particles)+"\n"
-            + " num. of (stat)mesh part: "+str(num_static_mesh_particles)+"\n"
-            + " num. of (dyn)mesh part:  "+str(num_dynamic_mesh_particles))
+        print(" number of meshes:    0")
+    print(    " number of particles: "+str(num_particles)+"\n"
+            + " number of fluid part:"+str(num_fluid_particles)+"\n"
+            + " number of mesh part: "+str(num_bodies_particles))
     print('-'*term_size.columns)
 
 def print_particle_num():
@@ -415,27 +292,18 @@ def main():
     print_init()
     print_particle_num()
     if bool_mesh:
-        mc.init_collision_bodies()
-        load_mesh_particles()
+        mc.init_collision_bodies_lighthouse_scene()
     init_particles()
     if bool_sphere:
         sc.init_collision_spheres()
     if bool_box:
-        bc.init_collision_boxes_rotation()
         bc.init_collision_boxes()
-    replace_init_particle()
     window = ti.ui.Window("PBF_3D", screen_res)
     canvas = window.get_canvas()
     scene = ti.ui.Scene()
     camera = ti.ui.Camera()
-    # setup camera
-    camera_position = ti.Vector([(-1./2.)*math.pi,(1./4.)*math.pi, 60.])  
-    camera_lookat = ti.Vector([boundary[0]/2+1 ,7, 0])
-    set_camera_position(camera, camera_position, camera_lookat)
-    camera_info = ti.Vector.field(dim, float)
-    ti.root.dense(ti.i, 2).place(camera_info)
-    camera_info[0] = camera_lookat
-    camera_info[1] = camera_position
+    camera.position(boundary[0]/2+1,55, -60)
+    camera.lookat(boundary[0]/2+1 ,7, 0)
 
     counter = 0
     global bool_pause
@@ -454,14 +322,12 @@ def main():
             scene.particles(sc.collision_sphere_positions, color = (0.7, 0.4, 0.4), radius = collision_sphere_radius)
         if bool_box:
             scene.particles(bc.vertices, color = (0.79, 0.26, 0.18), radius = particle_radius)
-            scene.particles(bc.collision_boxes_positions, color = (0.09, 0.6, 0.08), radius = particle_radius)
             scene.lines(bc.lines, width=1, color = (0.79, 0.26, 0.18))
         if bool_mesh:
             p_idx = num_fluid_particles
-            for b_idx in range(1,1+num_dynamic_meshes+num_static_meshes):
-                scene.particles(positions, index_count=particle_numbers[b_idx], index_offset=p_idx, color=(0.78, 0.36+b_idx*0.2, 0.79), radius = particle_radius)
-                p_idx += particle_numbers[b_idx]
-        scene.particles(camera_info, color = (1., 1., 1.), radius = particle_radius)
+            for b_idx in range(num_collision_bodies):
+                scene.particles(positions, index_count=mesh_sizes[b_idx], index_offset=p_idx, color=(0.38, 0.36+b_idx*0.2, 0.69), radius = particle_radius)
+                p_idx += mesh_sizes[b_idx]
 
         # step
         if not bool_pause:
@@ -491,40 +357,6 @@ def main():
                 print("pause")
             else:
                 print("continue")
-            
-        # move camera position
-        if (window.is_pressed(ti.GUI.LEFT, ti.GUI.RIGHT, ti.GUI.UP, ti.GUI.DOWN, 'i', 'o')):
-            if (window.is_pressed(ti.GUI.LEFT)):
-                camera_position[0] = camera_position[0] + 0.01 % 2*math.pi
-            elif (window.is_pressed(ti.GUI.RIGHT)):
-                camera_position[0] = camera_position[0] - 0.01 % 2*math.pi
-            if (window.is_pressed(ti.GUI.UP)):
-                camera_position[1] = max(min(camera_position[1] + 0.01, math.pi/2.), -math.pi/2.)
-            elif (window.is_pressed(ti.GUI.DOWN)):
-                camera_position[1] = max(min(camera_position[1] - 0.01, math.pi/2.), -math.pi/2.)
-            if (window.is_pressed('i')):
-                camera_position[2] = max(camera_position[2] - 1., 0.)
-            elif (window.is_pressed('o')):
-                camera_position[2] = max(camera_position[2] + 1., 0.)
-            set_camera_position(camera, camera_position, camera_lookat)
-            camera_info[1] = camera_position
-        
-        # move lookat position
-        if (window.is_pressed('w','a','s','d','f','g')):
-            if (window.is_pressed('a')):
-                camera_lookat[0] = camera_lookat[0] + 1.
-            elif (window.is_pressed('d')):
-                camera_lookat[0] = camera_lookat[0] - 1.
-            if (window.is_pressed('f')):
-                camera_lookat[1] = camera_lookat[1] + 1.
-            elif (window.is_pressed('g')):
-                camera_lookat[1] = camera_lookat[1] - 1.
-            if (window.is_pressed('w')):
-                camera_lookat[2] = camera_lookat[2] + 1.
-            elif (window.is_pressed('s')):
-                camera_lookat[2] = camera_lookat[2] - 1.
-            set_camera_position(camera, camera_position, camera_lookat)
-            camera_info[0] = camera_lookat
 
 if __name__ == "__main__":
     main()
