@@ -1,4 +1,4 @@
-![alt-text-1](/images/example_1.png "unified pbf") ![alt-text-2](/images/example_1.png "...")
+![Alt](/images/example_1.png "unified pbf") ![Alt](/images/example_1.png "...")
 # PBS_Project: Position-Based Fluid Simulation
 
 ## Run Simulation
