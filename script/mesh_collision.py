@@ -30,7 +30,7 @@ def init_collision_bodies_lighthouse_scene():
         for i in range(mesh_points.shape[0]):
             mesh_position[idx] = ti.Vector(R @ np.array(mesh_points[i]))
             mesh_position[idx] *= 10* (1-b_idx*0.65)
-            mesh_position[idx] += ti.math.vec3([20., 1., 14.]) + b_idx*ti.math.vec3([-6., 0., 15.])
+            mesh_position[idx] += ti.math.vec3([21., 1., 14.]) + b_idx*ti.math.vec3([-6., 0., 15.])
             idx += 1            
 
 def init_collision_bodies_bathroom_scene():
