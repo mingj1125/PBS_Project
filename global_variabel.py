@@ -30,13 +30,13 @@ dim = 3
 # tolerance
 tol = 1e-6
 # num of particles
-num_particles_x = 10
-num_particles_y = 35
-num_particles_z = 50
+# num_particles_x = 10
+# num_particles_y = 35
+# num_particles_z = 50
 # bathroom scene
-# num_particles_x = 30
-# num_particles_y = 15
-# num_particles_z = 30
+num_particles_x = 30
+num_particles_y = 15
+num_particles_z = 30
 num_particles = num_particles_x * num_particles_y * num_particles_z
 num_fluid_particles = num_particles
 max_num_particles_per_cell = 100
@@ -80,7 +80,7 @@ mesh_sizes = []
 # mesh input for bunnies
 # mesh_names = ["meshes/bunny_dense.vtk","meshes/bunny_dense.vtk"]
 # mesh input for bathroom scene
-mesh_names = ["meshes/bathtub_volume.vtk","meshes/bunny.vtk","meshes/bunny.vtk"]
+mesh_names = ["meshes/bathtub_volume.vtk","meshes/bunny_data/bunny.vtk","meshes/bunny_data/bunny.vtk"]
 # mesh input for lighthouse scene
 # mesh_names = ["meshes/lighthouse.vtk","meshes/sea_arch.vtk"]
 mesh_sizes = []
