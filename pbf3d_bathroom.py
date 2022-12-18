@@ -397,6 +397,11 @@ def main():
     global bool_pause
     global bool_record
 
+    FRAME = 160
+    frame_counter = 0
+    series_prefix = "ply_fluids/fluids.ply"
+    series_prefix_balls = "ply_balls/balls.ply"
+
     while window.running and not window.is_pressed(ti.GUI.ESCAPE):
         # set camera
         camera.track_user_inputs(window, movement_speed=0.03, hold_key=ti.ui.RMB)
@@ -431,7 +436,6 @@ def main():
         
         # display window
         window.show()
-
         # handel input
         if (window.is_pressed('r')):
             time.sleep(0.1)
@@ -447,6 +451,23 @@ def main():
                 print("pause")
             else:
                 print("continue")
+
+        # scene bath
+        np_pos_fluids = np.reshape(positions.to_numpy(), (27570, 3))
+        # np_pos_balls = np.reshape(dc.collision_ball_positions.to_numpy(), (4, 3))
+        # scene lighthouse
+        # print(np_pos_fluids.shape)
+        if frame_counter < FRAME:
+            # writer = ti.tools.PLYWriter(num_vertices=num_fluid_particles)
+            # writer.add_vertex_pos(np_pos_fluids[0:17500, 0], np_pos_fluids[0:17500, 1], np_pos_fluids[0:17500, 2])
+            # writer.export_frame_ascii(frame_counter, series_prefix)
+
+            # writer_balls = ti.tools.PLYWriter(num_vertices=4)
+            # writer_balls.add_vertex_pos(np_pos_balls[:, 0], np_pos_balls[:, 1], np_pos_balls[:, 2])
+            # writer_balls.export_frame_ascii(frame_counter, series_prefix_balls)
+            # print(np_pos_balls[:, 0], np_pos_balls[:, 1], np_pos_balls[:, 2])
+            frame_counter += 1
+            print('Exporting frame: {}', frame_counter)
 
 if __name__ == "__main__":
     main()
