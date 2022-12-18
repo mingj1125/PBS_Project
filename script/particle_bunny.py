@@ -11,16 +11,16 @@ path = os.getcwd()
 @ti.data_oriented
 class Particle_Bunny:
 
-    def __init__(self, solid=True, filename = path+"/bunny_data/bunny_volume_0.1_m4.vtk" ) -> None:
+    def __init__(self, solid=True, filename = path+"/meshes/bunny_data/bunny_volume_0.1_m4.vtk" ) -> None:
         self.solid = solid
         if(self.solid == False):
-            filename = path+"/bunny_data/bunny_volume.vtk" 
+            filename = path+"/meshes/bunny_data/bunny_volume.vtk" 
         volume_bunny = meshio.read(filename)
         bunnyv_pos = volume_bunny.points
         self.num_particles = bunnyv_pos.shape[0]
         if(self.solid):
             self.num_particles_volume = self.num_particles
-            filename = path+"/bunny_data/bunny_surface_0.3_m1.vtk"
+            filename = path+"/meshes/bunny_data/bunny_surface_0.3_m1.vtk"
             surface_bunny = meshio.read(filename)
             bunnys_pos = surface_bunny.points
             self.num_particles_surface = bunnys_pos.shape[0]

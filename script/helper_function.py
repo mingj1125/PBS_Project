@@ -138,3 +138,9 @@ def get_particle_info(p_idx):
     particle_phase = get_particle_phase(p_idx)
     particle_id = get_particle_obj
     return particle_phase, particle_id
+
+def set_camera_position(camera, camera_position, camera_lookat):
+    camera.position(camera_lookat[0]+cos(camera_position[0])*cos(camera_position[1])*camera_position[2],
+                    camera_lookat[1]+                        sin(camera_position[1])*camera_position[2],
+                    camera_lookat[2]+sin(camera_position[0])*cos(camera_position[1])*camera_position[2])
+    camera.lookat(camera_lookat[0],camera_lookat[1],camera_lookat[2])

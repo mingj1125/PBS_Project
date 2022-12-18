@@ -13,12 +13,15 @@ vertices = None
 lines = None
 # box midpoints
 collision_boxes_positions  = None
+collision_boxes_old_positions  = None
 # box velocites
 collision_boxes_velocities = None
 # box rotation
 collision_boxes_rotations  = None
 # box edges index
 lines_idx = None
+# box init rotation
+rotations = [[0.,0.,0.] for i in range(num_collision_boxes)]
 
 ## confine box to boundary
 @ti.func
@@ -182,22 +185,22 @@ def calculate_box_edges(num_lines=2*num_lines_per_box*num_collision_boxes):
 
 def init_collision_boxes_rotation():
     for box_idx in range(num_collision_boxes):
+        # angel
+        w = rotations[box_idx]
         # rotation
-        R = rotation_mat(0.5, 0., 0.)
+        R = rotation_mat(w[0],w[1],w[2])
         collision_boxes_rotations[box_idx] = ti.Vector([R[0][0],R[0][1],R[0][2],R[1][0],R[1][1],R[1][2],R[2][0],R[2][1],R[2][2]])
 
 @ti.kernel
-def init_collision_boxes():
+def init_collision_boxes_outline():
     bmax = ti.Vector([boundary[0], boundary[1], boundary[2]])  
     num_lines = 0
     for box_idx in range(num_collision_boxes):
         # rotation
         R = collision_boxes_rotations[box_idx]
         # midpoint
-        offs = ti.Vector([5.,0.,5.])
-        diff = ti.Vector([10.,0.,0.])
         box_half_diag = collision_box_size[box_idx]*0.5
-        midpoint = box_half_diag + (box_idx)*diff + offs
+        midpoint = collision_boxes_positions[box_idx]
         # boundary artefact
         new_midpoint = midpoint
         new_size = box_half_diag
@@ -251,15 +254,43 @@ def init_collision_boxes():
                     num_lines += 1
         
         # rotate vertices
-        vertices[8*box_idx+6] = midpoint + rotate_vertex(R, vertices[8*box_idx+6])
-        vertices[8*box_idx+7] = midpoint + rotate_vertex(R, vertices[8*box_idx+7])
-        vertices[8*box_idx+0] = midpoint + rotate_vertex(R, vertices[8*box_idx+0])
-        vertices[8*box_idx+1] = midpoint + rotate_vertex(R, vertices[8*box_idx+1])
-        vertices[8*box_idx+2] = midpoint + rotate_vertex(R, vertices[8*box_idx+2])
-        vertices[8*box_idx+4] = midpoint + rotate_vertex(R, vertices[8*box_idx+4])
-        vertices[8*box_idx+3] = midpoint + rotate_vertex(R, vertices[8*box_idx+3])
-        vertices[8*box_idx+5] = midpoint + rotate_vertex(R, vertices[8*box_idx+5])
+        for i in range(8):
+            vertices[8*box_idx+i] = midpoint + rotate_vertex(R, vertices[8*box_idx+i])
+        # vertices[8*box_idx+6] = midpoint + rotate_vertex(R, vertices[8*box_idx+6])
+        # vertices[8*box_idx+7] = midpoint + rotate_vertex(R, vertices[8*box_idx+7])
+        # vertices[8*box_idx+0] = midpoint + rotate_vertex(R, vertices[8*box_idx+0])
+        # vertices[8*box_idx+1] = midpoint + rotate_vertex(R, vertices[8*box_idx+1])
+        # vertices[8*box_idx+2] = midpoint + rotate_vertex(R, vertices[8*box_idx+2])
+        # vertices[8*box_idx+4] = midpoint + rotate_vertex(R, vertices[8*box_idx+4])
+        # vertices[8*box_idx+3] = midpoint + rotate_vertex(R, vertices[8*box_idx+3])
+        # vertices[8*box_idx+5] = midpoint + rotate_vertex(R, vertices[8*box_idx+5])
+
+        # print(midpoint, box_half_diag)
     
     calculate_box_edges(num_lines)
     # for line_idx in range(num_lines):
     #     lines[line_idx] = vertices[int(lines_idx[line_idx])]
+
+def init_collision_boxes():
+    init_collision_boxes_rotation()
+    init_collision_boxes_outline()
+
+def init_boxes_scene_default():
+    # rotation
+    for i in range(num_collision_boxes):
+        rotations[i] = [0.5*i,0.3*i,0.1*i]
+
+    # sizes
+    for i in range(num_collision_boxes):
+        collision_box_size[i] = ti.Vector([5.,5.,5.])
+
+    # velocities
+    for i in range(num_collision_boxes):
+        collision_boxes_velocities[i] = ti.Vector([0.,0.,0.])
+    
+    # positions
+    offs = ti.Vector([4.,4.,4.])
+    diff = ti.Vector([8.,0.,1.])
+    for i in range(num_collision_boxes):
+        box_half_diag = 0.5*collision_box_size[i]
+        collision_boxes_positions[i] = box_half_diag + i*diff + offs
