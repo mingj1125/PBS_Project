@@ -1,3 +1,4 @@
+![alt-text-1](/images/example_1.png "unified pbf") ![alt-text-2](/images/example_1.png "...")
 # PBS_Project: Position-Based Fluid Simulation
 
 ## Run Simulation
@@ -6,7 +7,7 @@ To run a simulation, it is necessayr to execute right Python-file and use the gl
 Some scenes are already prepared, with it's one python-file and global\_variabel-file (gl\_var\_*.py). Their is a bash-script, run.sh, to run these files.
 
 ### Prepared Scenes
-To run one prepare scene call run.sh with one of the following arguments:
+To run a prepared scene, call run.sh with one of the following arguments:
 - **drop**: A bunny drop in PBF-Simulation.
 - **sphere_dynamic**: PBF-Simulation with dynamic spheres.
 - **sphere_static**: PBF-Simulation with static spheres.
