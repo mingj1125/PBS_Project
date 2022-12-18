@@ -22,4 +22,4 @@ The position of the lookat-Point is in cartesian-coordinates (x,y,z).
 - **f**: in positive y-direction
 - **g**: in negative y-direction
 
-![Alt](/camera_pos.png "Explaination for the moves of the camera")
+![Alt](/images/camera_pos.png "Explaination for the moves of the camera")
