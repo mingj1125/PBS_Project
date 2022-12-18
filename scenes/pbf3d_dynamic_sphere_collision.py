@@ -39,7 +39,7 @@ epsilon = 1e-5
 particle_radius = 0.1
 particle_radius_in_world = particle_radius / screen_to_world_ratio
 num_collision_balls = 5
-collision_ball_radius = 1.
+collision_ball_radius = 1.8
 collision_contact_offset = 1.5*particle_radius
 
 # PBF params
