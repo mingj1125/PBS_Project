@@ -36,9 +36,17 @@ ti.root.dense(ti.i, 8*num_collision_boxes).place(bc.vertices)
 # box edges
 bc.lines = ti.Vector.field(dim, float)
 ti.root.dense(ti.i, 2*num_lines_per_box*num_collision_boxes).place(bc.lines)
+bc.lines_idx = ti.field(float)
+ti.root.dense(ti.i, 2*num_lines_per_box*num_collision_boxes).place(bc.lines_idx)
 # box midpoints
 bc.collision_boxes_positions = ti.Vector.field(dim, float)
 ti.root.dense(ti.i, num_collision_boxes).place(bc.collision_boxes_positions)
+# box velocites
+bc.collision_boxes_velocities = ti.Vector.field(dim, float)
+ti.root.dense(ti.i, num_collision_boxes).place(bc.collision_boxes_velocities)
+# box rotation
+bc.collision_boxes_rotations = ti.Vector.field(dim*dim, float)
+ti.root.dense(ti.i, num_collision_boxes).place(bc.collision_boxes_rotations)
 # particle position
 old_positions = ti.Vector.field(dim, float)
 positions = ti.Vector.field(dim, float)
@@ -436,6 +444,7 @@ def main():
         
         # display window
         window.show()
+
         # handel input
         if (window.is_pressed('r')):
             time.sleep(0.1)
