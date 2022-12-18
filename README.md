@@ -1,4 +1,4 @@
-![](/images/example_1.png "unified pbf") | ![](/images/example_1.png "...")
+![](/images/example_1.png "unified pbf" =20%x) ![](/images/example_1.png "..." =20%x)
 # PBS_Project: Position-Based Fluid Simulation
 
 ## Run Simulation
