@@ -1,7 +1,7 @@
-<p float="left">
-  <img src="/images/example_1.png" width="32%" />
-  <img src="/images/example_1.png" width="32%" /> 
-  <img src="/images/example_1.png" width="32%" />
+<p float="middle">
+  <img src="/images/example_1.png" width="33%" />
+  <img src="/images/example_1.png" width="33%" /> 
+  <img src="/images/example_1.png" width="33%" />
 </p>
 
 # PBS_Project: Position-Based Fluid Simulation
