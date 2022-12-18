@@ -38,6 +38,23 @@ bunny_nb_node.dense(ti.j, max_num_neighbors).place(particle_neighbors)
 bunny_position_deltas = ti.Vector.field(dim, float)
 ti.root.dense(ti.i, total_num_bunny_particles).place(bunny_position_deltas)
 
+particle_numbers = ti.field(int)
+ti.root.dense(ti.i, num_bunnies+1).place(particle_numbers)
+particle_numbers[0] = 0
+particle_numbers[1] = num_bunny_particles
+particle_numbers[2] = num_bunny_particles
+particle_numbers[3] = num_bunny_particles
+
+@ti.func
+def get_particle_obj(p_idx):
+    # obj id
+    particle_id = 0
+    tmp_sum = 0
+    while p_idx >= tmp_sum and tmp_sum < total_num_bunny_particles:
+        tmp_sum += particle_numbers[particle_id]
+        particle_id += 1
+    return particle_id
+
 @ti.func
 def confine_position_to_boundary(p):
     bmin = particle_radius
@@ -129,12 +146,43 @@ def solve_solid_contact():
     for i in bunny_positions:
         pos = bunny_positions[i]
         bunny_positions[i]= confine_position_to_boundary(pos)     
-    update_center_of_mass()
-    for bunny in range(num_bunnies):    
-        shape_matching(bunny)
-    for i in bunny_positions:
-        bunny_positions[i] += bunny_position_deltas[i]
-        old_bunny_positions[i] += bunny_position_deltas[i]
+    # for bunny in range(num_bunnies):    
+    #     shape_matching(bunny)
+    # for i in bunny_positions:
+    #     bunny_positions[i] += bunny_position_deltas[i]
+    #     old_bunny_positions[i] += bunny_position_deltas[i]
+
+@ti.kernel
+def solve_collision():
+    #shape matching for rigid bodies 
+    for p_i in bunny_positions:
+        pos_i = bunny_positions[p_i] 
+        ph_i = get_particle_obj(p_i)
+
+        for j in range(particle_num_neighbors[p_i]):
+            p_j = particle_neighbors[p_i, j]
+            if p_j < 0:
+                break
+            pos_j = bunny_positions[p_j]
+            ph_j = get_particle_obj(p_j)
+
+            pos_ji = pos_i - pos_j
+
+            if pos_ji.norm() < 2*particle_radius and not ph_i == ph_j:
+                pos_delta_i, pos_delta_j = mesh_particle_collision(pos_i, pos_j)
+                bunny_positions[p_i] = pos_i + pos_delta_i
+                bunny_positions[p_j] = pos_j + pos_delta_j   
+
+@ti.func
+def mesh_particle_collision(pos_i,pos_j):
+    pos_ji = pos_i - pos_j
+    sdf_value = (pos_ji).norm() - (2*particle_radius)
+    
+    sdf_normal = (pos_ji)/(pos_ji.norm())
+    
+    delta = sdf_value*sdf_normal * 0.5 * (sdf_value + particle_radius + epsilon * ti.random())
+        
+    return -delta, delta
 
 @ti.kernel
 def epilogue():
@@ -142,25 +190,37 @@ def epilogue():
         bunny_velocities[i] = (bunny_positions[i] - old_bunny_positions[i]) / time_delta
         #particle sleeping
         if((bunny_positions[i] - old_bunny_positions[i]).norm() < 0.05):
-            bunny_positions[i] = old_bunny_positions[i] 
+            bunny_positions[i] = old_bunny_positions[i]
+
+@ti.kernel
+def solve_shape():
+    update_center_of_mass()
+    for bunny in range(num_bunnies):    
+        shape_matching(bunny)
+    for i in bunny_positions:
+        bunny_positions[i] += bunny_position_deltas[i]
+        old_bunny_positions[i] += bunny_position_deltas[i]
 
 def run_pbf():
     prologue()
-    solve_solid_contact()
+    for _ in range(10):
+        solve_solid_contact()
+        solve_collision()
+        solve_shape()
     epilogue()
 
 @ti.kernel
 def init_particles():
     for j in range(num_bunnies):
         for i in range(num_bunny_particles):
-            bunny_positions[j*num_bunny_particles+i] = bunny.particle_pos[i] + ti.math.vec3([9.*j,0.,0.])
+            bunny_positions[j*num_bunny_particles+i] = bunny.particle_pos[i] + ti.math.vec3([0.,9.*j,0.])
     bunny_velocities.fill(0.)
 
 def main():
     init_particles()
     window = ti.ui.Window("Bunny Simulator", screen_res)
     canvas = window.get_canvas()
-    canvas.set_background_color((0.9,0.7,0.6))
+    canvas.set_background_color((0.1,0.1,0.1))
     scene = ti.ui.Scene()
     camera = ti.ui.Camera()
     camera.position(boundary[0]/2+1,35,50)
@@ -176,8 +236,8 @@ def main():
         scene.ambient_light((0.8, 0.8, 0.8))
         scene.point_light(pos=(0.5, 1.5, 1.5), color=(1, 1, 1))
         # draw particles and collision obj
-        scene.particles(bunny_positions, color = (0.58, 0.26, 0.49), radius = particle_radius)
-
+        scene.particles(bunny_positions, index_count = num_bunny_particles, color = (0.38, 0.26, 0.49), radius = particle_radius)
+        
         # step
         if not bool_pause:
             run_pbf()

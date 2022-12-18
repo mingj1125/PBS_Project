@@ -174,13 +174,12 @@ def solve_solid_contact():
 
 @ti.kernel
 def solve_collision():
-    #shape matching for rigid bodies 
     for p_i in bunny_positions:
         pos_i = bunny_positions[p_i]
         norm_i = bunny_normals[p_i]
         ph_i = get_particle_obj(p_i)
 
-        for j in range(particle_num_neighbors[i]):
+        for j in range(particle_num_neighbors[p_i]):
             p_j = particle_neighbors[p_i, j]
             if p_j < 0:
                 break
@@ -231,7 +230,7 @@ def solve_shape():
 
 def run_pbf():
     prologue()
-    for _ in range(25):
+    for _ in range(40):
         solve_solid_contact()
         solve_collision()
         solve_shape()
@@ -280,7 +279,7 @@ def init_particles():
 
             tmp = ti.Vector([0.,0.,0.])
             tmp_counter = 0
-            for j in range(particle_num_neighbors[i]):
+            for j in range(particle_num_neighbors[p_i]):
                 p_j = particle_neighbors[p_i, j]
                 if p_j < 0:
                     break
