@@ -1,32 +1,23 @@
-# PBS_Project
+# PBS_Project: Position-Based Fluid Simulation
 
-https://mmacklin.com/pbf_sig_preprint.pdf PBF paper \
-https://interactivecomputergraphics.github.io/physics-simulation/ Neighbor search & simple collision detection \
-https://blog.mmacklin.com/2013/07/25/siggraph-slides/ Demo video \
-https://matthias-research.github.io/pages/publications/flex.pdf Particles representation for non-convex rigid body\
-http://graphics.stanford.edu/courses/cs468-05-fall/Papers/p471-muller.pdf Shape Matching \
-https://splishsplash.readthedocs.io/en/latest/VolumeSampling.html Tool: Particle representation for non-convex objects \
-https://github.com/nschloe/meshio/tree/0138cc8692b806b44b32d344f7961e8370121ff7 meshio repo
 
-# Project Plan: 
+## Move Camera
+The camera is moveable (in most newer files). We can move the position of the camera and the position of the lookat-Point. The camera is sat at the camera position and looks towards the other point. This point is marked with a white particle.
 
-## Simulation Methods: 
-  Position Based Dynamics \
-  Neighbor Search using Spatial Hashing\
-  Rigid Body Collisions using Signed Distance Fields\
-  Two-Way Coupling of Fluids with Clothing and Rigid Bodies 
+### Camera position
+The camera position is in polar coordinates (alpha, beta, radius).
+- **UP**: move the camera up
+- **DOWN**: move the camera down
+- **LEFT**: rotate the camera around the lookat in the left direction
+- **RIGHT**: rotate the camera around the lookat in the right direction
+- **i**: (in), decrease the radius/distance from lookat
+- **o**: (out), increase the radius/distance from lookat
 
-## minimum target: 
-  3D PBF \
-  Collision with static convex objects (spheres, cubes...) 
-## desired target: 
-  Collision with daynamic simple objects and maybe static meshes 
-## bonus target: 
-  Collision with sand castle or cloth 
-  
-# Milestones: 
-
-Setting up framework, extension for 3D pdf simulation (1-2 week) \
-Collsion functions with static objects (3-4 week) \
-Setting up objects collision scenes and collision functions for simple dynamic objects (5-6 week) \
-Rendering and eventually bonus target (7-8 week)
+### lookat position
+The position of the lookat-Point is in cartesian-coordinates (x,y,z).
+- **w**: in positive z-direction
+- **s**: in negative z-direction
+- **a**: in positive x-direction
+- **d**: in negative x-direction
+- **f**: in positive y-direction
+- **g**: in negative y-direction
