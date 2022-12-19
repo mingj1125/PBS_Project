@@ -6,6 +6,11 @@
 
 # PBS_Project: Position-Based Fluid Simulation
 
+<p float="middle">
+  <img src="/images/example_7.png" width="45%" />
+  <img src="/images/example_8.png" width="45%" /> 
+</p>
+
 ## Run Simulation
 The main functions for each PBF-Simulation are mostly in one file (pbf3d*.py). Some additionally function for different features are in other files from the 'script' folder. Important global variables are in defined in global_variabel.py, to be available in the different files. \
 To run a simulation, it is necessayr to execute right Python-file and use the global_variabel.py with the correct variabels.
