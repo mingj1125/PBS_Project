@@ -44,3 +44,10 @@ The position of the lookat-Point is in cartesian-coordinates (x,y,z).
 - **g**: in negative y-direction
 
 ![Alt](/images/camera_pos.png "Explaination for the moves of the camera")
+
+<p float="middle">
+  <img src="/images/example_4.png" width="32%" />
+  <img src="/images/example_5.png" width="32%" /> 
+  <img src="/images/example_6.png" width="32%" />
+</p>
+

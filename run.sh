@@ -28,7 +28,11 @@ elif [ "$1" = "unified" ]
 then
     cp scenes/gl_var_unified.py global_variabel.py
     python3 pbf3d_bunny_simulator.py
+elif [ "$1" = "dynamics" ]
+then
+    cp scenes/gl_var_dynamics.py global_variabel.py
+    python3 pbf3d.py
 else
     cp scenes/gl_var_default.py global_variabel.py
-    python3 pbf3d_bunny_simulator.py
+    python3 pbf3d.py
 fi
