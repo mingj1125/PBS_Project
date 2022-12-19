@@ -9,7 +9,7 @@ then
 elif [ "$1" = "sphere_dynamic" ]
 then
     python3 ./scenes/pbf3d_dynamic_sphere_collision.py
-elif [ "$1" = "sphere" ]
+elif [ "$1" = "sphere_static" ]
 then
     python3 ./scenes/pbf3d_sphere_collision.py
 elif [ "$1" = "lighthouse" ]
