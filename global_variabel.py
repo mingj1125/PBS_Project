@@ -31,11 +31,15 @@ dim = 3
 # tolerance
 tol = 1e-6
 # num of particles
-num_particles_x = 0
-num_particles_y = 0
-num_particles_z = 0
-num_particles = 0
-num_fluid_particles = 0
+# num_particles_x = 10
+# num_particles_y = 35
+# num_particles_z = 50
+# bathroom scene
+num_particles_x = 30
+num_particles_y = 15
+num_particles_z = 30
+num_particles = num_particles_x * num_particles_y * num_particles_z
+num_fluid_particles = num_particles
 max_num_particles_per_cell = 100
 max_num_neighbors = 100
 time_delta = 1.0 / 30.0
@@ -90,8 +94,58 @@ num_dynamic_mesh_particles = 0
 mesh_input = ["NULL", "NULL", "meshes/lighthouse.vtk"]
 num_mesh_particles = 0
 
-## dynamic balls params
-num_collision_balls = 0
+## body params
+num_collision_bodies = 2
+num_bodies_particles = 0
+mesh_sizes = []
+# mesh input for bunnies
+# mesh_names = ["meshes/bunny_dense.vtk","meshes/bunny_dense.vtk"]
+# mesh input for bathroom scene
+mesh_names = ["meshes/bathtub_volume.vtk","meshes/bunny_data/bunny.vtk","meshes/bunny_data/bunny.vtk"]
+# mesh input for lighthouse scene
+# mesh_names = ["meshes/lighthouse.vtk","meshes/sea_arch.vtk"]
+mesh_sizes = []
+for i in range(num_collision_bodies):
+    mesh_obj = meshio.read(mesh_names[i])
+    mesh_points = mesh_obj.points
+    mesh_sizes.append(mesh_points.shape[0])
+    particle_numbers.append(mesh_points.shape[0])
+    num_bodies_particles += mesh_points.shape[0]
+num_particles += num_bodies_particles
+
+## object bools
+bool_box = True
+if  num_collision_boxes == 0:
+    bool_box = False
+    num_collision_boxes = 1
+
+bool_sphere = True
+if  num_collision_spheres == 0:
+    bool_sphere = False
+    num_collision_spheres = 1
+
+bool_mesh = True
+# if  num_static_meshes == 0 and num_dynamic_meshes == 0:
+if  num_collision_bodies == 0:
+    bool_mesh = False
+    num_static_meshes = 1
+    num_dynamic_meshes = 1
+
+## PBF params
+h_ = 1.1
+mass = 1.0
+rho0 = 1.0
+lambda_epsilon = 100.0
+pbf_num_iters = 5
+stablization_iters = 5
+corr_deltaQ_coeff = 0.3
+corrK = 0.001
+neighbor_radius = h_ * 1.05
+# solid density scaling eq.27 unified particle system
+s = 0.5
+
+# dynamic balls params
+num_collision_balls = 4
 collision_ball_radius = 1.5
 stablization_iters = 8
 
