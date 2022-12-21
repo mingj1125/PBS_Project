@@ -56,3 +56,22 @@ The position of the lookat-Point is in cartesian-coordinates (x,y,z).
   <img src="/images/example_6.png" width="32%" />
 </p>
 
+## Implementation details
+The whole project contains implementations of position based fluids, collision functions of both static and dynamic spheres and boxes, rigid body under unified particle system using Taichi Lang as framework.
+
+### position based fluids
+We took the code example for 2D PBF as reference and extended the system in 3D. The implementation uses spatial hashing for neighborhood search and solve PBD in the particle centric style. The artificial pressure, vorticity confinement and viscosity according to the paper is added to our 3D implementation as well. This implementation can be found in the pbf3d.py file and is shown by default scene.
+
+### collision functions of static and dynamic objects
+The collision functions for objects are implemented using signed distance field and can be found in the script directory. This will be implemented with a constraint centric style. For visualization the scenes box_dynamic, sphere_dynamic and sphere_static are prepared.
+
+### bunny rigid body collision under unified particle representation
+For rigid Stanford Bunny we provide an implementation of the shape matching and sparse signed distance field collision method which is mentioned in the paper https://matthias-research.github.io/pages/publications/flex.pdf. You can find this in the bunny_collision_simulator.py file. The reference coordinate system for the particles group of bunny is precaculated in the bunny constructor which can be found in the particle_bunny.py file in the script directory.
+
+### unified particle representation
+The particle representation of the complex objects like bathtub, lighthouse, sea architecture and Stanford Bunny are downloaded from open source as obj files and sampled with the Sampling tool of SPlisHSPlasH https://github.com/InteractiveComputerGraphics/SPlisHSPlasH in vtk files in the mesh directory. We extracted the position information of the meshes using meshio python site-package. 
+
+## Rendering for Bathroom scene
+To make our simulation more realistic, we decided to render one of the scenes where it includes a bathtub, a Stanford bunny and several balls.
+	
+We exported 200 frames of our particle system as point cloud,  reconstruct mesh for each frame in Houdini, then we render those generated meshes in Blender with the help of cycles (Render engine).
