@@ -20,7 +20,7 @@ https://github.com/nschloe/meshio/tree/0138cc8692b806b44b32d344f7961e8370121ff7 
   3D PBF \
   Collision with static convex objects (spheres, cubes...) 
 ## desired target: 
-  Collision with daynamic simple objects and maybe static meshes 
+  Collision with dynamic simple objects and maybe static meshes 
 ## bonus target: 
   Collision with sand castle or cloth 
   
