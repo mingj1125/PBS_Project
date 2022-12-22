@@ -302,7 +302,7 @@ def init_particles():
 
     # for Bunny
     for i in range(bunny.num_particles):
-        positions[i+num_fluid_particles] = bunny.particle_pos[i]
+        positions[i+num_fluid_particles] = bunny.particle_pos[i] + ti.Vector([10.,10.,10.])
         velocities[i] = ti.math.vec3([0., 0., 0.])   
 
 def set_camera_position(camera, camera_position, camera_lookat):
@@ -338,11 +338,11 @@ while window.running and not window.is_pressed(ti.GUI.ESCAPE):
     else :    
         scene.particles(positions, index_offset = num_fluid_particles, color = (0.78, 0.36, 0.79), radius = particle_radius*2.5)
     #original position of the bunny
-    if (bunny.solid):
-        scene.particles(bunny.particle_pos, index_count = bunny.num_particles_volume, color = (0.88, 0.36, 0.19), radius = particle_radius*2.5)
-        scene.particles(bunny.particle_pos, index_offset = bunny.num_particles_volume, color = (0.58, 0.76, 0.79), radius = particle_radius*2.5)
-    else :    
-        scene.particles(bunny.particle_pos, color = (0.88, 0.36, 0.19), radius = particle_radius*2.5)
+    # if (bunny.solid):
+    #     scene.particles(bunny.particle_pos, index_count = bunny.num_particles_volume, color = (0.88, 0.36, 0.19), radius = particle_radius*2.5)
+    #     scene.particles(bunny.particle_pos, index_offset = bunny.num_particles_volume, color = (0.58, 0.76, 0.79), radius = particle_radius*2.5)
+    # else :    
+    #     scene.particles(bunny.particle_pos, color = (0.88, 0.36, 0.19), radius = particle_radius*2.5)
 
     # step
     if not bool_pause:
