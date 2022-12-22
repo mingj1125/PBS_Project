@@ -82,7 +82,7 @@ bc.collision_boxes_old_positions = ti.Vector.field(dim, float)
 ti.root.dense(ti.i, num_collision_boxes).place(bc.collision_boxes_old_positions)
 # box velocites
 bc.collision_boxes_velocities = ti.Vector.field(dim, float)
-bc.collision_boxes_angular_velocities = ti.Vector.field(dim, float)
+bc.collision_boxes_angular_velocities = ti.Vector.field(dim*dim, float)
 ti.root.dense(ti.i, num_collision_boxes).place(bc.collision_boxes_velocities, bc.collision_boxes_angular_velocities)
 # box rotation
 bc.collision_boxes_rotations = ti.Vector.field(dim*dim, float)
@@ -240,6 +240,10 @@ def prologue():
         for i in range(num_collision_boxes):
             # save box position
             bc.collision_boxes_old_positions[i] = bc.collision_boxes_positions[i]
+            # rotate
+            R = bc.collision_boxes_rotations[i]
+            Rv = bc.collision_boxes_angular_velocities[i]
+            bc.collision_boxes_rotations[i] = add_rotation(Rv, R)
             # apply gravity within boundary to box
             pos, vel = bc.collision_boxes_positions[i], bc.collision_boxes_velocities[i]
             vel += g * time_delta

@@ -155,8 +155,11 @@ def particle_collide_dynamic_collision_box(p,v,jdx=-1):
             J_b = (1./12.)*box_mass*(avg_size*avg_size + avg_size*avg_size)
             dreh = impuls_p/J_b * dist * time_delta
             R_ = rotation_mat_ti(dreh[0], dreh[1], dreh[2])
-            R = add_rotation(R_,R)
-            collision_boxes_rotations[i] = ti.Vector([R[0],R[1],R[2],R[3],R[4],R[5],R[6],R[7],R[8]])
+            Rv = collision_boxes_angular_velocities[i]
+            # R_v = add_rotation(R_,Rv)
+            # collision_boxes_angular_velocities[i] = ti.Vector([R_v[0],R_v[1],R_v[2],R_v[3],R_v[4],R_v[5],R_v[6],R_v[7],R_v[8]])
+            R_v = add_rotation(R_,R)
+            collision_boxes_rotations[i] = ti.Vector([R_v[0],R_v[1],R_v[2],R_v[3],R_v[4],R_v[5],R_v[6],R_v[7],R_v[8]])
             # update velocity
             v -= v.dot(n)*n*1.7
     return p,v
@@ -207,8 +210,9 @@ def box_ball_collision(p,v,radius):
             J_b = (1./12.)*box_mass*(avg_size*avg_size + avg_size*avg_size)
             dreh = impuls_p/J_b * dist * time_delta
             R_ = rotation_mat_ti(dreh[0], dreh[1], dreh[2])
-            R = add_rotation(R_,R)
-            collision_boxes_rotations[i] = ti.Vector([R[0],R[1],R[2],R[3],R[4],R[5],R[6],R[7],R[8]])
+            Rv = collision_boxes_angular_velocities[i]
+            R_v = add_rotation(R_,Rv)
+            collision_boxes_angular_velocities[i] = R_v
             # update velocity
             v -= v.dot(n)*n*1.7
     return p,v
