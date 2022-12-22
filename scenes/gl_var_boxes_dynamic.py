@@ -23,6 +23,7 @@ term_size = os.get_terminal_size()
 # window params
 bool_record = False
 bool_pause = False
+bool_camera = False
 
 ## simulation params
 # dimensions
@@ -93,6 +94,7 @@ rho0 = 1.0
 lambda_epsilon = 100.0
 pbf_num_iters = 5
 stablization_iters = 5
+split_iters = 5
 corr_deltaQ_coeff = 0.3
 corrK = 0.001
 neighbor_radius = h_ * 1.05
@@ -100,7 +102,7 @@ neighbor_radius = h_ * 1.05
 s = 0.5
 
 # dynamic balls params
-num_collision_balls = 4
+num_collision_balls = 0
 collision_ball_radius = 1.5
 stablization_iters = 8
 
