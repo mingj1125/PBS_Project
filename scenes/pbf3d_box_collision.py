@@ -25,9 +25,6 @@ ti.root.dense(ti.i, num_collision_spheres).place(sc.collision_sphere_positions)
 # box size
 bc.collision_box_size = ti.Vector.field(dim, float)
 ti.root.dense(ti.i, num_collision_boxes).place(bc.collision_box_size)
-# bc.collision_box_size[0] = ti.Vector([5.,16.,20.])
-bc.collision_box_size[0] = ti.Vector([8.,8.,8.])
-bc.collision_box_size[1] = ti.Vector([8.,8.,8.])
 # box vertices
 bc.vertices = ti.Vector.field(dim, float)
 ti.root.dense(ti.i, 8*num_collision_boxes).place(bc.vertices)
@@ -42,9 +39,14 @@ ti.root.dense(ti.i, num_collision_boxes).place(bc.collision_boxes_positions)
 # box velocites
 bc.collision_boxes_velocities = ti.Vector.field(dim, float)
 ti.root.dense(ti.i, num_collision_boxes).place(bc.collision_boxes_velocities)
+bc.collision_boxes_angular_velocities = ti.Vector.field(dim, float)
+ti.root.dense(ti.i, num_collision_boxes).place(bc.collision_boxes_angular_velocities)
 # box rotation
 bc.collision_boxes_rotations = ti.Vector.field(dim*dim, float)
 ti.root.dense(ti.i, num_collision_boxes).place(bc.collision_boxes_rotations)
+# box mass
+bc.mass = ti.field(float)
+ti.root.dense(ti.i, num_collision_boxes).place(bc.mass)
 # particle position
 old_positions = ti.Vector.field(dim, float)
 positions = ti.Vector.field(dim, float)
@@ -140,13 +142,13 @@ def prologue():
         particle_num_neighbors[p_i] = nb_i
 
     # apply gravity within boundary to box
-    if bool_box:
-        bound = ti.Vector([board_states[None][0], boundary[1], boundary[2]])
-        for i in range(num_collision_boxes):
-            pos, vel = bc.collision_boxes_positions[i], bc.collision_boxes_velocities[i]
-            vel += g * time_delta
-            pos += vel * time_delta
-            bc.confine_box_to_boundary(i, pos, bound)
+    # if bool_box:
+    #     bound = ti.Vector([board_states[None][0], boundary[1], boundary[2]])
+    #     for i in range(num_collision_boxes):
+    #         pos, vel = bc.collision_boxes_positions[i], bc.collision_boxes_velocities[i]
+    #         vel += g * time_delta
+    #         pos += vel * time_delta
+    #         bc.confine_box_to_boundary(i, pos, bound)
 
 @ti.kernel
 def substep():
@@ -204,7 +206,7 @@ def substep():
         if bool_sphere:
             positions[i], velocities[i] = sc.particle_collide_collision_sphere(positions[i], velocities[i])
         if bool_box:
-            positions[i], velocities[i] = bc.particle_collide_dynamic_collision_box(positions[i], velocities[i])
+            positions[i], velocities[i] = bc.particle_collide_collision_box(positions[i], velocities[i])
         positions[i] += position_deltas[i]
 
 @ti.kernel
@@ -232,10 +234,10 @@ def epilogue():
             K += (mass / rho0) * (velocities[p_j] - velocities[p_i]) * density_constraint
         velocities[p_i] = velocities[p_i] + c * K
     # update box outline
-    if bool_box:
-        for box_idx in range(num_collision_boxes):
-            bc.calculate_box_vertices(box_idx)
-        bc.calculate_box_edges()
+    # if bool_box:
+    #     for box_idx in range(num_collision_boxes):
+    #         bc.calculate_box_vertices(box_idx)
+    #     bc.calculate_box_edges()
 
 @ti.kernel
 def resolve_contact():
@@ -244,8 +246,8 @@ def resolve_contact():
 
 def run_pbf():
     prologue()
-    for _ in range(stablization_iters):
-        resolve_contact()
+    # for _ in range(stablization_iters):
+    #     resolve_contact()
     for _ in range(pbf_num_iters):
         substep()
     epilogue()
@@ -321,7 +323,7 @@ def main():
     if bool_sphere:
         sc.init_collision_spheres()
     if bool_box:
-        bc.init_boxes_scene_default()
+        bc.init_boxes_scene_static()
         bc.init_collision_boxes()
     replace_init_particle()
     window = ti.ui.Window("PBF_3D_Boxes", screen_res)
@@ -354,10 +356,11 @@ def main():
             scene.particles(sc.collision_sphere_positions, color = (0.7, 0.4, 0.4), radius = collision_sphere_radius)
         if bool_box:
             scene.particles(bc.vertices, color = (0.79, 0.26, 0.18), radius = particle_radius)
-            scene.particles(bc.collision_boxes_positions, color = (0.09, 0.6, 0.08), radius = particle_radius)
+            # scene.particles(bc.collision_boxes_positions, color = (0.09, 0.6, 0.08), radius = particle_radius)
             scene.lines(bc.lines, width=1, color = (0.79, 0.26, 0.18))
         # draw camera infos
-        scene.particles(camera_info, color = (1., 1., 1.), radius = particle_radius)
+        if bool_camera:
+            scene.particles(camera_info, color = (1., 1., 1.), radius = particle_radius)
 
         # step
         if not bool_pause:
