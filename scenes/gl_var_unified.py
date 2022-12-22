@@ -10,7 +10,7 @@ def round_up(f, s):
 screen_res = (1566, 1500)
 screen_to_world_ratio = 10.0
 # boundary
-bound = (500, 300, 200)
+bound = (500, 800, 500)
 boundary = (bound[0] / screen_to_world_ratio,
             bound[1] / screen_to_world_ratio,
             bound[2] / screen_to_world_ratio)
@@ -23,6 +23,7 @@ term_size = os.get_terminal_size()
 # window params
 bool_record = False
 bool_pause = False
+bool_camera = False
 
 ## simulation params
 # dimensions
@@ -37,7 +38,7 @@ num_particles = 0
 num_fluid_particles = 0
 max_num_particles_per_cell = 100
 max_num_neighbors = 100
-time_delta = 1.0 / 20.0
+time_delta = 1.0 / 40.0
 epsilon = 1e-5
 # particle radius
 particle_radius = 0.2
@@ -83,10 +84,10 @@ num_lines_per_box = 12
 num_static_meshes = 1
 num_static_mesh_particles = 0
 # dynamic
-num_dynamic_meshes = 2
+num_dynamic_meshes = 1
 num_dynamic_mesh_particles = 0
 
-mesh_input = ["NULL", "NULL", "meshes/bunny_data/bunny_dense.vtk"]
+mesh_input = ["NULL", "meshes/lighthouse.vtk"]
 num_mesh_particles = 0
 
 ## dynamic balls params
@@ -100,8 +101,8 @@ virtual_particle_neighbors_dist = (particle_radius*4*h_)
 neighborhood_particle_off = math.floor(neighbor_radius/virtual_particle_neighbors_dist)
 
 ## set particle numbers
-num_particles_x = 20
-num_particles_y = 20
+num_particles_x = 25
+num_particles_y = 25
 num_particles_z = 30
 num_fluid_particles = num_particles_x * num_particles_y * num_particles_z
 num_particles += num_fluid_particles
