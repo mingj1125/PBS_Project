@@ -18,6 +18,7 @@ To run a prepared scene, call run.sh with one of the following arguments:
 - **sphere_static**: PBF-Simulation with static spheres.
 - **lighthouse**: Scene with lighthouse and arch in particle representation.
 - **bathroom**: Scene with bathtube, bunny and dynamic spheres.
+- **box_static**: PBF-Simulation with static boxes.
 - **box_dynamic**: PBF-Simulation with dynamic boxes.
 - **unified**: PBF-simulation with unified particel representation of complex meshes.
 - *default*: Simple PBF-Simulation without anything.
@@ -72,5 +73,5 @@ To make our simulation more realistic, we decided to render one of the scenes wh
 We exported 200 frames of our particle system as point cloud,  reconstruct mesh for each frame in Houdini, then we render those generated meshes in Blender with the help of cycles (Render engine). You can find the rendered result in bathroom.mp4.
 
 <p float="middle">
-  <img src="/images/bath.gif" width="75%" /> 
+  <img src="/images/bath.gif" width="100%" /> 
 </p>
