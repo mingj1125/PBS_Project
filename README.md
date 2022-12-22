@@ -4,12 +4,7 @@
   <img src="/images/example_2.png" width="32%" />
 </p>
 
-# PBS_Project: Position-Based Fluid Simulation
-
-<p float="middle">
-  <img src="/images/example_7.png" width="45%" />
-  <img src="/images/example_8.png" width="45%" /> 
-</p>
+# PBS Project: Position-Based Fluid Simulation
 
 ## Run Simulation
 The main functions for each PBF-Simulation are mostly in one file (pbf3d*.py). Some additionally function for different features are in other files from the 'script' folder. Important global variables are in defined in global_variabel.py, to be available in the different files. \
@@ -75,3 +70,8 @@ The particle representation of the complex objects like bathtub, lighthouse, sea
 To make our simulation more realistic, we decided to render one of the scenes which includes a bathtub, a Stanford bunny and several dynamic rigid balls.
 	
 We exported 200 frames of our particle system as point cloud,  reconstruct mesh for each frame in Houdini, then we render those generated meshes in Blender with the help of cycles (Render engine). You can find the rendered result in bathroom.mp4.
+
+<p float="middle">
+  <img src="/images/example_7.png" width="45%" />
+  <img src="bath.gif" width="45%" /> 
+</p>
