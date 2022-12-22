@@ -6,6 +6,7 @@
 import math
 import numpy as np
 import taichi as ti
+import time
 
 ti.init(arch=ti.cuda)
 
@@ -345,6 +346,9 @@ camera = ti.ui.Camera()
 camera_position = ti.Vector([(-1./2.)*math.pi,(1./4.)*math.pi, 60.])  
 camera_lookat = ti.Vector([boundary[0]/2+1 ,7, 0])
 set_camera_position(camera, camera_position, camera_lookat)
+bool_record = False
+bool_pause = False
+counter = 0
 while window.running and not window.is_pressed(ti.GUI.ESCAPE):
     camera.track_user_inputs(window, movement_speed=0.03, hold_key=ti.ui.RMB)
     scene.set_camera(camera)
@@ -354,9 +358,18 @@ while window.running and not window.is_pressed(ti.GUI.ESCAPE):
     scene.particles(collision_sphere_positions, color = (0.7, 0.4, 0.4), radius = collision_sphere_radius)
     # draw a smaller ball to avoid visual penetration if you don't like using contact offset
     # scene.particles(collision_sphere_positions, color = (0.7, 0.4, 0.4), radius = collision_sphere_radius*0.95)
-    move_board()
-    run_pbf()
-    canvas.scene(scene)
+    
+    # step
+    if not bool_pause:
+        move_board()
+        run_pbf()
+    canvas.scene(scene) 
+    # save image
+    if bool_record:
+        window.save_image("images/pbf-"+str(counter)+".png")
+        counter += 1
+    
+    # display window
     window.show()
     
     # handel input
