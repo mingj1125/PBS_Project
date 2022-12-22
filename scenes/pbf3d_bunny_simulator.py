@@ -5,6 +5,9 @@ import numpy as np
 import taichi as ti
 import time
 import meshio
+import sys
+
+sys.path.append('../PBS_Project')
 
 ## include own code
 from script.helper_function import *
@@ -53,7 +56,7 @@ particle_numbers = ti.Vector(particle_numbers)
 ## initialize vectors
 # mesh vectors
 center_of_mass = ti.Vector.field(dim, float)
-ti.root.dense(ti.i, num_dynamic_meshes).place(center_of_mass)
+ti.root.dense(ti.i, max(num_dynamic_meshes,1)).place(center_of_mass)
 # sphere positions
 sc.collision_sphere_positions = ti.Vector.field(dim, float)
 ti.root.dense(ti.i, num_collision_spheres).place(sc.collision_sphere_positions)
@@ -79,11 +82,14 @@ ti.root.dense(ti.i, num_collision_boxes).place(bc.collision_boxes_velocities)
 # box rotation
 bc.collision_boxes_rotations = ti.Vector.field(dim*dim, float)
 ti.root.dense(ti.i, num_collision_boxes).place(bc.collision_boxes_rotations)
+# box mass
+bc.mass = ti.field(float)
+ti.root.dense(ti.i, num_collision_boxes).place(bc.mass)
 # particle position
 old_positions = ti.Vector.field(dim, float)
 positions = ti.Vector.field(dim, float)
 velocities = ti.Vector.field(dim, float)
-mass = ti.field(int)
+mass = ti.field(float)
 particle_type = ti.field(int)
 ti.root.dense(ti.i, num_particles).place(old_positions, positions, velocities, mass, particle_type)
 # grid
@@ -361,7 +367,14 @@ def epilogue():
         positions[i] = confine_position_to_boundary(pos)
     # update velocities
     for i in positions:
-        velocities[i] = (positions[i] - old_positions[i]) / time_delta
+        vel = velocities[i]
+        new_vel = (positions[i] - old_positions[i]) / time_delta
+        if i >= num_fluid_particles:
+            if vel.norm() > 0 and new_vel.norm() > 20*vel.norm():
+                new_vel = np.exp(-time_delta)*velocities[i]
+                # if new_vel.norm() > 100*vel.norm():
+                #     new_vel = new_vel*(90*vel.norm()/new_vel.norm())
+        velocities[i] = new_vel
     # no vorticity/xsph because we cannot do cross product in 3D
     c = 0.01
     for p_i in range(num_fluid_particles):
@@ -436,9 +449,9 @@ def load_mesh_particles():
             tmp_index_particles = int(particle_numbers[j])
             bunny_mesh = mc.mesh_names[j-1]
             for i in range(tmp_index_particles):
-                positions[tmp_num_particles+i] = bunny_mesh.particle_pos[i] + (j-i)*ti.math.vec3([10.,0.,5.]) + ti.math.vec3([1.,1.,1.])
+                positions[tmp_num_particles+i] = bunny_mesh.particle_pos[i] + ti.math.vec3([8.,4.,15.]) + (j-1)*ti.math.vec3([10.,0.,10.])
                 velocities[tmp_num_particles+i] = ti.math.vec3([0.,0.,0.])
-                mass[tmp_num_particles+i] = 2
+                mass[tmp_num_particles+i] = 1.
                 particle_type[tmp_num_particles+i] = j
         # static
         elif num_dynamic_meshes < j:
@@ -446,9 +459,9 @@ def load_mesh_particles():
             mesh_points = mesh.points
             mc.print_mesh_info(j-1, mesh_points.shape[0], R)
             for i in range(mesh_points.shape[0]):
-                positions[i+tmp_num_particles] = ti.Vector(R @ np.array(mesh_points[i])) * 10 + ti.math.vec3([15., 1., 5.]) + (j-1)*ti.math.vec3([0., 0., 5.])
+                positions[i+tmp_num_particles] = ti.Vector(R @ np.array(mesh_points[i])) * 10 + ti.math.vec3([20., 0., 25.]) + (j-1)*ti.math.vec3([0., 0., 5.])
                 velocities[i+tmp_num_particles] = ti.math.vec3([0., 0., 0.])
-                mass[tmp_num_particles+i] = 3
+                mass[tmp_num_particles+i] = 2.
                 particle_type[tmp_num_particles+i] = j
         tmp_num_particles += int(particle_numbers[j])
 
@@ -522,8 +535,8 @@ def main():
     scene = ti.ui.Scene()
     camera = ti.ui.Camera()
     # setup camera
-    camera_position = ti.Vector([(-1./2.)*math.pi,(1./4.)*math.pi, 60.])  
-    camera_lookat = ti.Vector([boundary[0]/2+1 ,7, 0])
+    camera_position = ti.Vector([(-1./2.)*math.pi,(1./8.)*math.pi, 100.])  
+    camera_lookat = ti.Vector([boundary[0]/2+1 ,7, boundary[2]/2+1])
     set_camera_position(camera, camera_position, camera_lookat)
     camera_info = ti.Vector.field(dim, float)
     ti.root.dense(ti.i, 2).place(camera_info)
@@ -533,6 +546,10 @@ def main():
     counter = 0
     global bool_pause
     global bool_record
+
+
+    camera_position[0] = camera_position[0] - 0.001*(counter+750) % 2*math.pi
+    set_camera_position(camera, camera_position, camera_lookat)
 
     while window.running and not window.is_pressed(ti.GUI.ESCAPE):
         # set camera
@@ -554,7 +571,8 @@ def main():
             for b_idx in range(1,1+num_dynamic_meshes+num_static_meshes):
                 scene.particles(positions, index_count=particle_numbers[b_idx], index_offset=p_idx, color=(0.78, 0.36+b_idx*0.2, 0.79), radius = particle_radius)
                 p_idx += particle_numbers[b_idx]
-        scene.particles(camera_info, color = (1., 1., 1.), radius = particle_radius)
+        if bool_camera:
+            scene.particles(camera_info, color = (1., 1., 1.), radius = particle_radius)
 
         # step
         if not bool_pause:
@@ -618,6 +636,10 @@ def main():
                 camera_lookat[2] = camera_lookat[2] - 1.
             set_camera_position(camera, camera_position, camera_lookat)
             camera_info[0] = camera_lookat
+        
+        # move camera automatic
+        camera_position[0] = camera_position[0] - 0.001 % 2*math.pi
+        set_camera_position(camera, camera_position, camera_lookat)
 
 if __name__ == "__main__":
     main()
