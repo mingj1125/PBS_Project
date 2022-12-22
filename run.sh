@@ -20,19 +20,24 @@ elif [ "$1" = "bathroom" ]
 then
     cp scenes/gl_var_bathroom.py global_variabel.py
     python3 ./scenes/pbf3d_bathroom.py
+elif [ "$1" = "box_static" ]
+then
+    cp scenes/gl_var_boxes_static.py global_variabel.py
+    python3 ./scenes/pbf3d_box_collision.py
 elif [ "$1" = "box_dynamic" ]
 then
     cp scenes/gl_var_boxes_dynamic.py global_variabel.py
-    python3 ./scenes/pbf3d_box_collision.py
+    python3 pbf3d.py
 elif [ "$1" = "unified" ]
 then
     cp scenes/gl_var_unified.py global_variabel.py
-    python3 pbf3d_bunny_simulator.py
+    python3 ./scenes/pbf3d_bunny_simulator.py
 elif [ "$1" = "dynamics" ]
 then
     cp scenes/gl_var_dynamics.py global_variabel.py
     python3 pbf3d.py
 else
+    echo " run default"
     cp scenes/gl_var_default.py global_variabel.py
     python3 pbf3d.py
 fi
