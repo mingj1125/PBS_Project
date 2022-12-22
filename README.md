@@ -72,6 +72,6 @@ To make our simulation more realistic, we decided to render one of the scenes wh
 We exported 200 frames of our particle system as point cloud,  reconstruct mesh for each frame in Houdini, then we render those generated meshes in Blender with the help of cycles (Render engine). You can find the rendered result in bathroom.mp4.
 
 <p float="middle">
-  <img src="/images/example_7.png" width="45%" />
-  <img src="bath.gif" width="45%" /> 
+  <img src="/images/example_7.png" width="30%" />
+  <img src="bath.gif" width="65%" /> 
 </p>
