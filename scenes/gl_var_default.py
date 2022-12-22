@@ -23,6 +23,7 @@ term_size = os.get_terminal_size()
 # window params
 bool_record = False
 bool_pause = False
+bool_camera = False
 
 ## simulation params
 # dimensions
@@ -92,6 +93,7 @@ num_mesh_particles = 0
 num_collision_balls = 0
 collision_ball_radius = 1.5
 stablization_iters = 8
+split_iters = 5
 
 max_num_balls_per_cell = 50
 max_num_virtual_neighbors = 50
@@ -99,7 +101,7 @@ virtual_particle_neighbors_dist = (particle_radius*4*h_)
 neighborhood_particle_off = math.floor(neighbor_radius/virtual_particle_neighbors_dist)
 
 ## set particle numbers
-num_particles_x = 10
+num_particles_x = 20
 num_particles_y = 35
 num_particles_z = 25
 num_fluid_particles = num_particles_x * num_particles_y * num_particles_z
