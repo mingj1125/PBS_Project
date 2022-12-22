@@ -7,6 +7,8 @@ from script.helper_function import get_particle_phase
 ## declare field
 collision_ball_positions = None
 collision_ball_weights = None
+old_collision_ball_positions = None
+collision_ball_velocities = None
 board_states = None
 
 @ti.func
@@ -62,6 +64,6 @@ def ball_collision_response_boundary(p):
 def init_collision_balls():
     for i in range(num_collision_balls):
         delta = h_ * 1.8
-        offs = ti.Vector([boundary[0]*0.35, boundary[1] * 0.2,  boundary[2] * 0.7])
+        offs = ti.Vector([boundary[0]*0.35, boundary[1] * 0.2,  boundary[2] * 0.4])
         collision_ball_positions[i] = ti.Vector([2*i*collision_ball_radius,i%2,i%2*collision_ball_radius/2.])*delta + offs
         collision_ball_weights[i][0] = (i*3+17.5)

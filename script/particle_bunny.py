@@ -27,16 +27,18 @@ class Particle_Bunny:
             self.num_particles += bunnys_pos.shape[0]
         self.particle_pos = ti.Vector.field(3, dtype=ti.f32, shape = self.num_particles)
         if(self.solid):
+            print("solid bunny")
             for i in range(self.num_particles_volume):
-                self.particle_pos[i] = bunnyv_pos[i] * 2.3 
-                self.particle_pos[i] += ti.math.vec3([17., 18., 12.])
+                self.particle_pos[i] = bunnyv_pos[i] * 4
+                # self.particle_pos[i] += ti.math.vec3([17., 18., 12.])
             for i in range(self.num_particles_surface):
-                self.particle_pos[i+self.num_particles_volume] = bunnys_pos[i] * 2.3
-                self.particle_pos[i+self.num_particles_volume] += ti.math.vec3([17., 18., 12.])    
+                self.particle_pos[i+self.num_particles_volume] = bunnys_pos[i] * 4
+                # self.particle_pos[i+self.num_particles_volume] += ti.math.vec3([17., 18., 12.])    
         else:
+            print("fluid bunny")
             for i in range(self.num_particles):
-                self.particle_pos[i] = bunnyv_pos[i] * 2.3 
-                self.particle_pos[i] += ti.math.vec3([17., 18., 12.]) 
+                self.particle_pos[i] = bunnyv_pos[i] * 4
+                # self.particle_pos[i] += ti.math.vec3([17., 18., 12.]) 
 
         self.center_of_mass = ti.Vector.field(3, dtype=ti.f32, shape = 1)    
         self.particle_offset_CoM = ti.Vector.field(3, dtype=ti.f32, shape = self.num_particles) 
