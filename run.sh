@@ -36,6 +36,12 @@ elif [ "$1" = "dynamics" ]
 then
     cp scenes/gl_var_dynamics.py global_variabel.py
     python3 pbf3d.py
+elif [ "$1" = "bunny" ]
+then
+    python3 bunny_simulator.py
+elif [ "$1" = "bunny_collision" ]
+then
+    python3 bunny_collision_simulator.py
 else
     echo " run default"
     cp scenes/gl_var_default.py global_variabel.py
