@@ -20,6 +20,10 @@ num_fluid_particles = 0
 
 print(num_bunnies, num_bunny_particles, num_bunny_particles_volume, bunny.num_particles_surface, total_num_bunny_particles, num_fluid_particles)
 
+# plane
+plane = ti.Vector.field(dim, float)
+ti.root.dense(ti.i, 6).place(plane)
+
 # particle position
 old_bunny_positions = ti.Vector.field(dim, float)
 bunny_positions = ti.Vector.field(dim, float)
@@ -240,7 +244,7 @@ def run_pbf():
 def init_particles():
     for j in range(num_bunnies):
         for i in range(num_bunny_particles):
-            bunny_positions[j*num_bunny_particles+i] = bunny.particle_pos[i] + ti.math.vec3([4.*j,2.*j,0.])
+            bunny_positions[j*num_bunny_particles+i] = bunny.particle_pos[i] + ti.math.vec3([7.*j,5.*j,7.*j]) + ti.math.vec3([15.,10.,5.])
     bunny_velocities.fill(0.)
 
     # clear neighbor lookup table
@@ -304,9 +308,27 @@ def main():
     scene = ti.ui.Scene()
     camera = ti.ui.Camera()
     camera.position(boundary[0]/2+1,35,50+50)
-    camera.lookat(boundary[0]/2+1 ,7, 0)    
+    camera.lookat(boundary[0]/2+1 ,7, 0)
 
-    global bool_pause        
+    plane[0] = ti.Vector([-10.,0.,-10.])
+    plane[1] = ti.Vector([50.,0.,-10.])
+    plane[2] = ti.Vector([-10.,0.,50.])
+    plane[3] = ti.Vector([50.,0.,-10.])
+    plane[4] = ti.Vector([-10.,0.,50.])
+    plane[5] = ti.Vector([50.,0.,50.])
+
+    # setup camera
+    camera_position = ti.Vector([(-1./2.)*math.pi,(1./10.)*math.pi, 80.])  
+    camera_lookat = ti.Vector([boundary[0]/2+1 ,7, boundary[2]/2+1])
+    set_camera_position(camera, camera_position, camera_lookat)
+    camera_info = ti.Vector.field(dim, float)
+    ti.root.dense(ti.i, 2).place(camera_info)
+    camera_info[0] = camera_lookat
+    camera_info[1] = camera_position
+
+    counter = 0
+    global bool_pause
+    global bool_record
 
     while window.running and not window.is_pressed(ti.GUI.ESCAPE):
         # set camera
@@ -319,15 +341,29 @@ def main():
         scene.particles(bunny_positions, index_count = num_bunny_particles, color = (0.58, 0.26, 0.49), radius = particle_radius)
         scene.particles(bunny_positions, index_count = num_bunny_particles, index_offset = num_bunny_particles, color = (0.38, 0.26, 0.49), radius = particle_radius)
         scene.particles(bunny_positions, index_count = num_bunny_particles, index_offset = 2*num_bunny_particles, color = (0.18, 0.26, 0.49), radius = particle_radius)
+        # draw plane
+        scene.mesh(vertices=plane, color=(0.2,0.2,0.2))
 
         # step
         if not bool_pause:
             run_pbf()
         canvas.scene(scene) 
-
-         # display window
+        # save image
+        if bool_record:
+            window.save_image("images/pbf-"+str(counter)+".png")
+            counter += 1
+        
+        # display window
         window.show()
 
+        # handel input
+        if (window.is_pressed('r')):
+            time.sleep(0.1)
+            bool_record = not bool_record
+            if bool_record:
+                print("recording now ...")
+            else:
+                print("stop record")
         if (window.is_pressed('p')):
             time.sleep(1)
             bool_pause = not bool_pause
@@ -335,6 +371,40 @@ def main():
                 print("pause")
             else:
                 print("continue")
+        
+        # move camera position
+        if (window.is_pressed(ti.GUI.LEFT, ti.GUI.RIGHT, ti.GUI.UP, ti.GUI.DOWN, 'i', 'o')):
+            if (window.is_pressed(ti.GUI.LEFT)):
+                camera_position[0] = camera_position[0] + 0.01 % 2*math.pi
+            elif (window.is_pressed(ti.GUI.RIGHT)):
+                camera_position[0] = camera_position[0] - 0.01 % 2*math.pi
+            if (window.is_pressed(ti.GUI.UP)):
+                camera_position[1] = max(min(camera_position[1] + 0.01, math.pi/2.), -math.pi/2.)
+            elif (window.is_pressed(ti.GUI.DOWN)):
+                camera_position[1] = max(min(camera_position[1] - 0.01, math.pi/2.), -math.pi/2.)
+            if (window.is_pressed('i')):
+                camera_position[2] = max(camera_position[2] - 1., 0.)
+            elif (window.is_pressed('o')):
+                camera_position[2] = max(camera_position[2] + 1., 0.)
+            set_camera_position(camera, camera_position, camera_lookat)
+            camera_info[1] = camera_position
+        
+        # move lookat position
+        if (window.is_pressed('w','a','s','d','f','g')):
+            if (window.is_pressed('a')):
+                camera_lookat[0] = camera_lookat[0] + 1.
+            elif (window.is_pressed('d')):
+                camera_lookat[0] = camera_lookat[0] - 1.
+            if (window.is_pressed('f')):
+                camera_lookat[1] = camera_lookat[1] + 1.
+            elif (window.is_pressed('g')):
+                camera_lookat[1] = camera_lookat[1] - 1.
+            if (window.is_pressed('w')):
+                camera_lookat[2] = camera_lookat[2] + 1.
+            elif (window.is_pressed('s')):
+                camera_lookat[2] = camera_lookat[2] - 1.
+            set_camera_position(camera, camera_position, camera_lookat)
+            camera_info[0] = camera_lookat
 
 if __name__ == "__main__":
     main()

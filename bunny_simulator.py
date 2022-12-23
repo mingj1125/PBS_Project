@@ -45,6 +45,11 @@ particle_numbers[1] = num_bunny_particles
 particle_numbers[2] = num_bunny_particles
 particle_numbers[3] = num_bunny_particles
 
+ecken = ti.Vector.field(dim, float)
+ti.root.dense(ti.i, 2).place(ecken)
+ecken[0] = ti.Vector([0.,0.,0.])
+ecken[1] = ti.Vector([50.,50.,50.])
+
 @ti.func
 def get_particle_obj(p_idx):
     # obj id
@@ -213,7 +218,7 @@ def run_pbf():
 def init_particles():
     for j in range(num_bunnies):
         for i in range(num_bunny_particles):
-            bunny_positions[j*num_bunny_particles+i] = bunny.particle_pos[i] + ti.math.vec3([0.,9.*j,0.])
+            bunny_positions[j*num_bunny_particles+i] = bunny.particle_pos[i] + ti.math.vec3([0.,9.*j,0.]) + ti.math.vec3([17., 18., 12.])
     bunny_velocities.fill(0.)
 
 def main():
@@ -223,10 +228,16 @@ def main():
     canvas.set_background_color((0.1,0.1,0.1))
     scene = ti.ui.Scene()
     camera = ti.ui.Camera()
-    camera.position(boundary[0]/2+1,35,50)
-    camera.lookat(boundary[0]/2+1 ,7, 0)    
+    # setup camera
+    camera_position = ti.Vector([(-1./2.)*math.pi,(1./4.)*math.pi, 60.])  
+    camera_lookat = ti.Vector([boundary[0]/2+1 ,7, 0])
+    set_camera_position(camera, camera_position, camera_lookat)
+    camera_info = ti.Vector.field(dim, float)
+    ti.root.dense(ti.i, 2).place(camera_info)
 
-    global bool_pause        
+    counter = 0
+    global bool_pause    
+    global bool_record    
 
     while window.running and not window.is_pressed(ti.GUI.ESCAPE):
         # set camera
@@ -237,15 +248,28 @@ def main():
         scene.point_light(pos=(0.5, 1.5, 1.5), color=(1, 1, 1))
         # draw particles and collision obj
         scene.particles(bunny_positions, index_count = num_bunny_particles, color = (0.38, 0.26, 0.49), radius = particle_radius)
-        
+        scene.particles(ecken, color = (1., 1., 1.), radius = particle_radius)
+
         # step
         if not bool_pause:
             run_pbf()
         canvas.scene(scene) 
-
-         # display window
+        # save image
+        if bool_record:
+            window.save_image("images/pbf-"+str(counter)+".png")
+            counter += 1
+        
+        # display window
         window.show()
 
+        # handel input
+        if (window.is_pressed('r')):
+            time.sleep(0.1)
+            bool_record = not bool_record
+            if bool_record:
+                print("recording now ...")
+            else:
+                print("stop record")
         if (window.is_pressed('p')):
             time.sleep(1)
             bool_pause = not bool_pause
@@ -253,6 +277,38 @@ def main():
                 print("pause")
             else:
                 print("continue")
+            
+        # move camera position
+        if (window.is_pressed(ti.GUI.LEFT, ti.GUI.RIGHT, ti.GUI.UP, ti.GUI.DOWN, 'i', 'o')):
+            if (window.is_pressed(ti.GUI.LEFT)):
+                camera_position[0] = camera_position[0] + 0.01 % 2*math.pi
+            elif (window.is_pressed(ti.GUI.RIGHT)):
+                camera_position[0] = camera_position[0] - 0.01 % 2*math.pi
+            if (window.is_pressed(ti.GUI.UP)):
+                camera_position[1] = max(min(camera_position[1] + 0.01, math.pi/2.), -math.pi/2.)
+            elif (window.is_pressed(ti.GUI.DOWN)):
+                camera_position[1] = max(min(camera_position[1] - 0.01, math.pi/2.), -math.pi/2.)
+            if (window.is_pressed('i')):
+                camera_position[2] = max(camera_position[2] - 1., 0.)
+            elif (window.is_pressed('o')):
+                camera_position[2] = max(camera_position[2] + 1., 0.)
+            set_camera_position(camera, camera_position, camera_lookat)
+        
+        # move lookat position
+        if (window.is_pressed('w','a','s','d','f','g')):
+            if (window.is_pressed('a')):
+                camera_lookat[0] = camera_lookat[0] + 1.
+            elif (window.is_pressed('d')):
+                camera_lookat[0] = camera_lookat[0] - 1.
+            if (window.is_pressed('f')):
+                camera_lookat[1] = camera_lookat[1] + 1.
+            elif (window.is_pressed('g')):
+                camera_lookat[1] = camera_lookat[1] - 1.
+            if (window.is_pressed('w')):
+                camera_lookat[2] = camera_lookat[2] + 1.
+            elif (window.is_pressed('s')):
+                camera_lookat[2] = camera_lookat[2] - 1.
+            set_camera_position(camera, camera_position, camera_lookat)
 
 if __name__ == "__main__":
     main()
