@@ -78,7 +78,8 @@ bc.collision_boxes_old_positions = ti.Vector.field(dim, float)
 ti.root.dense(ti.i, num_collision_boxes).place(bc.collision_boxes_old_positions)
 # box velocites
 bc.collision_boxes_velocities = ti.Vector.field(dim, float)
-ti.root.dense(ti.i, num_collision_boxes).place(bc.collision_boxes_velocities)
+bc.collision_boxes_angular_velocities = ti.Vector.field(dim*dim, float)
+ti.root.dense(ti.i, num_collision_boxes).place(bc.collision_boxes_velocities, bc.collision_boxes_angular_velocities)
 # box rotation
 bc.collision_boxes_rotations = ti.Vector.field(dim*dim, float)
 ti.root.dense(ti.i, num_collision_boxes).place(bc.collision_boxes_rotations)
