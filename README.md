@@ -20,6 +20,8 @@ To run a prepared scene, call run.sh with one of the following arguments:
 - **bathroom**: Scene with bathtube, bunny and dynamic spheres.
 - **box_static**: PBF-Simulation with static boxes.
 - **box_dynamic**: PBF-Simulation with dynamic boxes.
+- **bunny**: Stanford-Bunny simulated with shape matching in particle representation.
+- **bunny_collision**: Collision handling of objects in particle representations.
 - **unified**: PBF-simulation with unified particel representation of complex meshes.
 - *default*: Simple PBF-Simulation without anything.
 
